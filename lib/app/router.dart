@@ -7,6 +7,7 @@ import '../features/security_manager/screens/manager_dashboard.dart';
 import '../features/security_supervisor/screens/supervisor_dashboard.dart';
 import '../features/gate_clerk/screens/clerk_dashboard.dart';
 import '../features/employer/screens/employer_dashboard.dart';
+import '../features/security_supervisor/screens/worker_registration_screen.dart';
 import '../core/enums/app_enums.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -68,6 +69,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/employer',
         builder: (context, state) => const EmployerDashboard(),
+      ),
+      GoRoute(
+        path: '/register-worker',
+        builder: (context, state) => const WorkerRegistrationScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
