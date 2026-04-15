@@ -68,7 +68,7 @@ class AuthService {
 
   Future<void> _updateLastLogin(String uid) async {
     await _db.collection('users').doc(uid).update({
-      'lastLogin': FieldValue.serverTimestamp(),
+      'last_login': FieldValue.serverTimestamp(),
     });
   }
 

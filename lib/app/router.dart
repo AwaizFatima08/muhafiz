@@ -2,29 +2,50 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
-import '../core/enums/app_enums.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/security_manager/screens/manager_dashboard.dart';
 import '../features/security_supervisor/screens/supervisor_dashboard.dart';
 import '../features/gate_clerk/screens/clerk_dashboard.dart';
 import '../features/employer/screens/employer_dashboard.dart';
+import '../core/enums/app_enums.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
-  final userModel = ref.watch(currentUserModelProvider);
+  final userModelAsync = ref.watch(currentUserModelProvider);
 
   return GoRouter(
     initialLocation: '/login',
     redirect: (context, state) {
+      final isLoadingAuth = authState.isLoading;
+      final isLoadingUser = userModelAsync.isLoading;
       final isLoggedIn = authState.valueOrNull != null;
       final isLoginRoute = state.matchedLocation == '/login';
 
-      if (!isLoggedIn && !isLoginRoute) return '/login';
-      if (isLoggedIn && isLoginRoute) {
-        return userModel.valueOrNull != null
-            ? _roleRoute(userModel.valueOrNull!.role)
-            : '/login';
+      // Wait for both streams to settle
+      if (isLoadingAuth || (isLoggedIn && isLoadingUser)) return null;
+
+      // Not logged in — always go to login
+      if (!isLoggedIn) return isLoginRoute ? null : '/login';
+
+      // Logged in but on login screen — send to correct dashboard
+      if (isLoginRoute) {
+        final user = userModelAsync.valueOrNull;
+        if (user == null) return null; // user doc missing, stay put
+        switch (user.role) {
+          case UserRole.securityManager:
+          case UserRole.superAdmin:
+            return '/manager';
+          case UserRole.securitySupervisor:
+            return '/supervisor';
+          case UserRole.gateClerk:
+            return '/clerk';
+          case UserRole.employer:
+            return '/employer';
+          case UserRole.worker:
+            return '/login';
+        }
       }
+
       return null;
     },
     routes: [
@@ -56,19 +77,3 @@ final routerProvider = Provider<GoRouter>((ref) {
     ),
   );
 });
-
-String _roleRoute(UserRole role) {
-  switch (role) {
-    case UserRole.securityManager:
-    case UserRole.superAdmin:
-      return '/manager';
-    case UserRole.securitySupervisor:
-      return '/supervisor';
-    case UserRole.gateClerk:
-      return '/clerk';
-    case UserRole.employer:
-      return '/employer';
-    case UserRole.worker:
-      return '/login';
-  }
-}

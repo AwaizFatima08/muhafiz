@@ -33,10 +33,10 @@ class UserModel {
         (e) => e.name == data['role'],
         orElse: () => UserRole.employer,
       ),
-      isActive: data['isActive'] ?? false,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      lastLogin: data['lastLogin'] != null
-          ? (data['lastLogin'] as Timestamp).toDate()
+      isActive: data['is_active'] ?? false,
+      createdAt: (data['created_at'] as Timestamp).toDate(),
+      lastLogin: data['last_login'] != null
+          ? (data['last_login'] as Timestamp).toDate()
           : null,
     );
   }
@@ -47,11 +47,9 @@ class UserModel {
       'email': email,
       'phone': phone,
       'role': role.name,
-      'isActive': isActive,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'lastLogin': lastLogin != null
-          ? Timestamp.fromDate(lastLogin!)
-          : null,
+      'is_active': isActive,
+      'created_at': Timestamp.fromDate(createdAt),
+      'last_login': lastLogin != null ? Timestamp.fromDate(lastLogin!) : null,
     };
   }
 

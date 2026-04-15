@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../../core/enums/app_enums.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../config/themes.dart';
 
@@ -48,31 +46,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         setState(() => _errorMessage = 'Account is inactive. Contact admin.');
         return;
       }
-      if (mounted) {
-        context.go(_roleRoute(user.role));
-      }
+      // Router redirect handles navigation based on role
     } catch (e) {
-      setState(() => _errorMessage = e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  String _roleRoute(UserRole role) {
-    switch (role) {
-      case UserRole.securityManager:
-      case UserRole.superAdmin:
-        return '/manager';
-      case UserRole.securitySupervisor:
-        return '/supervisor';
-      case UserRole.gateClerk:
-        return '/clerk';
-      case UserRole.employer:
-        return '/employer';
-      case UserRole.worker:
-        return '/login';
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
