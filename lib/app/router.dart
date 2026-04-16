@@ -9,6 +9,8 @@ import '../features/gate_clerk/screens/clerk_dashboard.dart';
 import '../features/employer/screens/employer_dashboard.dart';
 import '../features/security_supervisor/screens/worker_registration_screen.dart';
 import '../features/security_manager/screens/pending_approvals_screen.dart';
+import '../features/gate_clerk/screens/qr_scan_screen.dart';
+import '../features/gate_clerk/screens/manual_search_screen.dart';
 import '../core/enums/app_enums.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -78,6 +80,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/pending-approvals',
         builder: (context, state) => const PendingApprovalsScreen(),
+      ),
+      GoRoute(
+        path: '/clerk/scan',
+        builder: (context, state) => const QrScanScreen(),
+      ),
+      GoRoute(
+        path: '/clerk/manual-search',
+        builder: (context, state) => const ManualSearchScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
