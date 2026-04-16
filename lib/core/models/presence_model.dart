@@ -1,49 +1,47 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../enums/app_enums.dart';
 
 class PresenceModel {
-  final String employeeId;
-  final PresenceStatus currentStatus;
-  final GateEventType lastEventType;
-  final DateTime lastEventTime;
+  final String workerId;
+  final String currentStatus;
+  final String lastEventType;
+  final DateTime? lastEventTime;
   final String lastProcessedBy;
-  final DateTime updatedAt;
+  final DateTime? updatedAt;
 
   PresenceModel({
-    required this.employeeId,
+    required this.workerId,
     required this.currentStatus,
     required this.lastEventType,
-    required this.lastEventTime,
+    this.lastEventTime,
     required this.lastProcessedBy,
-    required this.updatedAt,
+    this.updatedAt,
   });
 
   factory PresenceModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return PresenceModel(
-      employeeId: doc.id,
-      currentStatus: PresenceStatus.values.firstWhere(
-        (e) => e.name == data['currentStatus'],
-        orElse: () => PresenceStatus.outside,
-      ),
-      lastEventType: GateEventType.values.firstWhere(
-        (e) => e.name == data['lastEventType'],
-        orElse: () => GateEventType.exit,
-      ),
-      lastEventTime: (data['lastEventTime'] as Timestamp).toDate(),
-      lastProcessedBy: data['lastProcessedBy'] ?? '',
-      updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+      workerId: doc.id,
+      currentStatus: data['current_status'] ?? data['currentStatus'] ?? 'outside',
+      lastEventType: data['last_event_type'] ?? data['lastEventType'] ?? 'exit',
+      lastEventTime: data['last_event_time'] != null
+          ? (data['last_event_time'] as Timestamp).toDate()
+          : data['lastEventTime'] != null
+              ? (data['lastEventTime'] as Timestamp).toDate()
+              : null,
+      lastProcessedBy: data['last_processed_by'] ?? data['lastProcessedBy'] ?? '',
+      updatedAt: data['updated_at'] != null
+          ? (data['updated_at'] as Timestamp).toDate()
+          : null,
     );
   }
 
   Map<String, dynamic> toFirestore() {
     return {
-      'employeeId': employeeId,
-      'currentStatus': currentStatus.name,
-      'lastEventType': lastEventType.name,
-      'lastEventTime': Timestamp.fromDate(lastEventTime),
-      'lastProcessedBy': lastProcessedBy,
-      'updatedAt': Timestamp.fromDate(updatedAt),
+      'current_status': currentStatus,
+      'last_event_type': lastEventType,
+      'last_event_time': lastEventTime != null ? Timestamp.fromDate(lastEventTime!) : null,
+      'last_processed_by': lastProcessedBy,
+      'updated_at': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
     };
   }
 }
