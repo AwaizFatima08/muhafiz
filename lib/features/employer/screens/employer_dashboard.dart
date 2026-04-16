@@ -224,7 +224,7 @@ class _StaffCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'House: \${assignment.houseNumber} • \${assignment.arrivalWindow}',
+                        'House: ${assignment.houseNumber} • ${assignment.arrivalWindow}',
                         style: TextStyle(
                             color: Colors.grey.shade600, fontSize: 12),
                       ),
