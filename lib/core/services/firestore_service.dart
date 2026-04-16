@@ -51,7 +51,7 @@ class FirestoreService {
 
   Stream<List<WorkerModel>> watchActiveWorkers() {
     return _workers
-        .where('status', whereIn: ['active', 'suspended'])
+        .where('status', whereIn: ['active', 'suspended', 'pendingApproval'])
         .snapshots()
         .map((snap) => snap.docs
             .map((doc) => WorkerModel.fromFirestore(doc))
