@@ -51,7 +51,7 @@ class _Step3PoliceVerificationState
       final cardNumber = await CardNumberGenerator.generate(db);
 
       // Generate QR value
-      final qrValue = 'MHZ-\${DateTime.now().millisecondsSinceEpoch}';
+      final qrValue = 'MHZ-' + DateTime.now().millisecondsSinceEpoch.toString();
 
       final now = DateTime.now();
 
