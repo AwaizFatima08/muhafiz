@@ -23,7 +23,6 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
   Future<void> _search() async {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
-    final ctx = context;
 
     setState(() {
       _searching = true;

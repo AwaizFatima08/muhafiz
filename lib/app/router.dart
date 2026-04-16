@@ -11,6 +11,8 @@ import '../features/security_supervisor/screens/worker_registration_screen.dart'
 import '../features/security_manager/screens/pending_approvals_screen.dart';
 import '../features/gate_clerk/screens/qr_scan_screen.dart';
 import '../features/gate_clerk/screens/manual_search_screen.dart';
+import '../features/gate_clerk/screens/inside_workers_screen.dart';
+import '../features/gate_clerk/screens/gate_log_screen.dart';
 import '../core/enums/app_enums.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -89,10 +91,34 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/clerk/manual-search',
         builder: (context, state) => const ManualSearchScreen(),
       ),
+      GoRoute(
+        path: '/clerk/inside-list',
+        builder: (context, state) => const InsideWorkersScreen(),
+      ),
+      GoRoute(
+        path: '/clerk/gate-log',
+        builder: (context, state) => const GateLogScreen(),
+      ),
+      GoRoute(
+        path: '/clerk/inside-list',
+        builder: (context, state) => const InsideWorkersScreen(),
+      ),
+      GoRoute(
+        path: '/clerk/gate-log',
+        builder: (context, state) => const GateLogScreen(),
+      ),
+      GoRoute(
+        path: '/clerk/inside-list',
+        builder: (context, state) => const InsideWorkersScreen(),
+      ),
+      GoRoute(
+        path: '/clerk/gate-log',
+        builder: (context, state) => const GateLogScreen(),
+      ),
     ],
     errorBuilder: (context, state) => Scaffold(
       body: Center(
-        child: Text('Route not found: \${state.matchedLocation}'),
+        child: Text('Route not found: ${state.matchedLocation}'),
       ),
     ),
   );

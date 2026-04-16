@@ -373,7 +373,7 @@ class _WorkerGateProfileSheetState extends State<WorkerGateProfileSheet> {
                               color: AppTheme.primaryColor,
                               fontSize: 13,
                               fontWeight: FontWeight.w500)),
-                      Text('\${w.workerType.name} • \${w.natureOfService.name}',
+                      Text('${w.workerType.name} • ${w.natureOfService.name}',
                           style: TextStyle(
                               color: Colors.grey.shade600,
                               fontSize: 12)),
