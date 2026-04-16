@@ -4,7 +4,7 @@ import '../enums/app_enums.dart';
 class WorkerModel {
   final String id;
   final String cardNumber;
-  final String name;
+  final String workerName;
   final String cnic;
   final DateTime? cnicExpiry;
   final DateTime? dob;
@@ -27,7 +27,7 @@ class WorkerModel {
   WorkerModel({
     required this.id,
     required this.cardNumber,
-    required this.name,
+    required this.workerName,
     required this.cnic,
     this.cnicExpiry,
     this.dob,
@@ -53,7 +53,7 @@ class WorkerModel {
     return WorkerModel(
       id: doc.id,
       cardNumber: data['card_number'] ?? '',
-      name: data['name'] ?? '',
+      workerName: data['worker_name'] ?? data['name'] ?? '',
       cnic: data['cnic'] ?? '',
       cnicExpiry: data['cnic_expiry'] != null
           ? (data['cnic_expiry'] as Timestamp).toDate() : null,
@@ -92,7 +92,7 @@ class WorkerModel {
   Map<String, dynamic> toFirestore() {
     return {
       'card_number': cardNumber,
-      'name': name,
+      'worker_name': workerName,
       'cnic': cnic,
       'cnic_expiry': cnicExpiry != null
           ? Timestamp.fromDate(cnicExpiry!) : null,
@@ -119,7 +119,7 @@ class WorkerModel {
   }
 
   WorkerModel copyWith({
-    String? name,
+    String? workerName,
     String? photoUrl,
     bool? policeVerified,
     DateTime? policeVerifDate,
@@ -135,7 +135,7 @@ class WorkerModel {
     return WorkerModel(
       id: id,
       cardNumber: cardNumber,
-      name: name ?? this.name,
+      workerName: workerName ?? this.workerName,
       cnic: cnic,
       cnicExpiry: cnicExpiry,
       dob: dob,

@@ -59,7 +59,7 @@ class _Step3PoliceVerificationState
       final worker = WorkerModel(
         id: '',
         cardNumber: cardNumber,
-        name: formState.name,
+        workerName: formState.name,
         cnic: formState.cnic,
         cnicExpiry: formState.cnicExpiry,
         dob: formState.dob,
@@ -259,7 +259,7 @@ class _Step3PoliceVerificationState
                           fontWeight: FontWeight.bold,
                           color: AppTheme.primaryColor)),
                   const Divider(),
-                  _SummaryRow('Name', formState.name),
+                  _SummaryRow('Worker Name', formState.name),
                   _SummaryRow('CNIC', formState.cnic),
                   _SummaryRow('Worker Type',
                       formState.workerType.name),
@@ -379,11 +379,11 @@ class _DatePickerField extends StatelessWidget {
               errorText: field.errorText,
             ),
             child: Text(
-              initialValue != null
-                  ? '${initialValue!.day.toString().padLeft(2, "0")}/${initialValue!.month.toString().padLeft(2, "0")}/${initialValue!.year}'
+              field.value != null
+                  ? '${field.value!.day.toString().padLeft(2, "0")}/${field.value!.month.toString().padLeft(2, "0")}/${field.value!.year}'
                   : 'Select date',
               style: TextStyle(
-                color: initialValue != null
+                color: field.value != null
                     ? Theme.of(context).textTheme.bodyLarge?.color
                     : Colors.grey,
               ),

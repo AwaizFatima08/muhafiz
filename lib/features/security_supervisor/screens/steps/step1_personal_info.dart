@@ -68,7 +68,7 @@ class _Step1PersonalInfoState extends ConsumerState<Step1PersonalInfo> {
     final notifier = ref.read(registrationFormProvider.notifier);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Form(
         key: _formKey,
         child: Column(
@@ -280,9 +280,12 @@ class _DatePickerField extends StatelessWidget {
           children: [
             InkWell(
               onTap: () async {
+                final clampedInitial = initialValue != null
+                    ? initialValue!
+                    : (DateTime.now().isAfter(lastDate) ? lastDate : DateTime.now());
                 final picked = await showDatePicker(
                   context: context,
-                  initialDate: initialValue ?? DateTime.now(),
+                  initialDate: clampedInitial,
                   firstDate: firstDate,
                   lastDate: lastDate,
                 );
@@ -298,11 +301,11 @@ class _DatePickerField extends StatelessWidget {
                   errorText: field.errorText,
                 ),
                 child: Text(
-                  initialValue != null
-                      ? '\${value!.day.toString().padLeft(2, "0")}/\${value!.month.toString().padLeft(2, "0")}/\${value!.year}'
+                  field.value != null
+                      ? '${field.value!.day.toString().padLeft(2, "0")}/${field.value!.month.toString().padLeft(2, "0")}/${field.value!.year}'
                       : 'Select date',
                   style: TextStyle(
-                    color: initialValue != null
+                    color: field.value != null
                         ? Theme.of(context).textTheme.bodyLarge?.color
                         : Colors.grey,
                   ),

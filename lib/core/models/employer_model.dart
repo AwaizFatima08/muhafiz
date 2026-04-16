@@ -38,18 +38,18 @@ class EmployerModel {
     return EmployerModel(
       id: doc.id,
       userId: data['userId'] ?? '',
-      name: data['name'] ?? '',
+      name: data['employer_name'] ?? data['name'] ?? '',
       department: data['department'] ?? '',
       unit: data['unit'] ?? '',
       grade: data['grade'] ?? '',
-      houseNumber: data['houseNumber'] ?? '',
+      houseNumber: data['house_number'] ?? data['houseNumber'] ?? '',
       blockSector: data['blockSector'] ?? '',
-      phoneMobile: data['phoneMobile'] ?? '',
-      phoneExtension: data['phoneExtension'] ?? '',
+      phoneMobile: data['phone_mobile'] ?? data['phoneMobile'] ?? '',
+      phoneExtension: data['phone_extension'] ?? data['phoneExtension'] ?? '',
       emergencyContact: data['emergencyContact'] ?? '',
       fcmToken: data['fcmToken'],
-      isActive: data['isActive'] ?? false,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      isActive: data['is_active'] ?? data['isActive'] ?? false,
+      createdAt: data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : DateTime.now(),
     );
   }
 
