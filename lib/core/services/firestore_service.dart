@@ -7,6 +7,9 @@ import '../models/presence_model.dart';
 import '../models/termination_model.dart';
 import '../models/notification_model.dart';
 import '../models/registration_request_model.dart';
+import '../models/site_settings_model.dart';
+import '../models/termination_request_model.dart';
+import '../models/blacklist_entry_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db;
@@ -24,6 +27,10 @@ class FirestoreService {
   CollectionReference get _terminations => _db.collection('termination_records');
   CollectionReference get _notifications => _db.collection('notifications');
   CollectionReference get _requests => _db.collection('registration_requests');
+  CollectionReference get _siteSettings => _db.collection('site_settings');
+  CollectionReference get _terminationRequests =>
+      _db.collection('termination_requests');
+  CollectionReference get _blacklist => _db.collection('blacklist');
 
   // ─── Workers ─────────────────────────────────────────────────────────────
 
@@ -53,14 +60,14 @@ class FirestoreService {
     return _workers
         .where('status', whereIn: ['active', 'suspended', 'pendingApproval'])
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => WorkerModel.fromFirestore(doc))
-            .toList());
+        .map((snap) =>
+            snap.docs.map((doc) => WorkerModel.fromFirestore(doc)).toList());
   }
 
   Future<WorkerModel?> getWorkerByCnic(String cnic) async {
     try {
-      final snap = await _workers.where('cnic', isEqualTo: cnic).limit(1).get();
+      final snap =
+          await _workers.where('cnic', isEqualTo: cnic).limit(1).get();
       if (snap.docs.isEmpty) return null;
       return WorkerModel.fromFirestore(snap.docs.first);
     } catch (e) {
@@ -82,6 +89,19 @@ class FirestoreService {
     }
   }
 
+  Future<WorkerModel?> getWorkerByCardNumber(String cardNumber) async {
+    try {
+      final snap = await _workers
+          .where('card_number', isEqualTo: cardNumber)
+          .limit(1)
+          .get();
+      if (snap.docs.isEmpty) return null;
+      return WorkerModel.fromFirestore(snap.docs.first);
+    } catch (e) {
+      return null;
+    }
+  }
+
   // ─── Employers ───────────────────────────────────────────────────────────
 
   Future<EmployerModel?> getEmployer(String employerId) async {
@@ -94,10 +114,6 @@ class FirestoreService {
     }
   }
 
-  Future<void> updateEmployerFcmToken(String employerId, String token) async {
-    await _employers.doc(employerId).update({'fcm_token': token});
-  }
-
   Stream<List<EmployerModel>> watchActiveEmployers() {
     return _employers
         .where('is_active', isEqualTo: true)
@@ -105,6 +121,27 @@ class FirestoreService {
         .map((snap) => snap.docs
             .map((doc) => EmployerModel.fromFirestore(doc))
             .toList());
+  }
+
+  /// Saves FCM token for any role.
+  /// Wrapped in individual try/catch blocks — a permission error on one
+  /// collection (e.g. gateClerk has no employers doc) does not block the other.
+  Future<void> updateFcmToken({
+    required String userId,
+    required String token,
+  }) async {
+    try {
+      await _employers.doc(userId).set(
+        {'fcm_token': token, 'updated_at': FieldValue.serverTimestamp()},
+        SetOptions(merge: true),
+      );
+    } catch (_) {}
+    try {
+      await _db.collection('users').doc(userId).set(
+        {'fcm_token': token},
+        SetOptions(merge: true),
+      );
+    } catch (_) {}
   }
 
   // ─── Worker Assignments ──────────────────────────────────────────────────
@@ -167,8 +204,8 @@ class FirestoreService {
   }
 
   Stream<List<GateEventModel>> watchTodayGateEvents() {
-    final startOfDay = DateTime.now().copyWith(
-        hour: 0, minute: 0, second: 0, millisecond: 0);
+    final startOfDay = DateTime.now()
+        .copyWith(hour: 0, minute: 0, second: 0, millisecond: 0);
     return _gateEvents
         .where('processed_at',
             isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
@@ -179,8 +216,8 @@ class FirestoreService {
             .toList());
   }
 
-  Future<List<GateEventModel>> getGateEventsForWorker(
-      String workerId, {int limit = 20}) async {
+  Future<List<GateEventModel>> getGateEventsForWorker(String workerId,
+      {int limit = 20}) async {
     try {
       final snap = await _gateEvents
           .where('workerId', isEqualTo: workerId)
@@ -230,7 +267,7 @@ class FirestoreService {
     });
   }
 
-  // ─── Termination Records ─────────────────────────────────────────────────
+  // ─── Termination Records (original) ─────────────────────────────────────
 
   Future<String> createTermination(TerminationModel termination) async {
     final ref = await _terminations.add(termination.toFirestore());
@@ -300,9 +337,8 @@ class FirestoreService {
   // ─── Midnight Auto-Exit ──────────────────────────────────────────────────
 
   Future<void> autoExitAllInside(String processedBy) async {
-    final insideSnap = await _presence
-        .where('current_status', isEqualTo: 'inside')
-        .get();
+    final insideSnap =
+        await _presence.where('current_status', isEqualTo: 'inside').get();
 
     final batch = _db.batch();
     final now = FieldValue.serverTimestamp();
@@ -310,7 +346,6 @@ class FirestoreService {
     for (final doc in insideSnap.docs) {
       final workerId = doc.id;
 
-      // Update presence
       batch.update(_presence.doc(workerId), {
         'current_status': 'outside',
         'last_event_type': 'exit',
@@ -319,11 +354,11 @@ class FirestoreService {
         'updated_at': now,
       });
 
-      // Create auto-exit gate event
       final eventRef = _gateEvents.doc();
       batch.set(eventRef, {
         'workerId': workerId,
-        'employerId': (doc.data() as Map<String, dynamic>?)?['last_processed_by'] ?? '',
+        'employerId':
+            (doc.data() as Map<String, dynamic>?)?['last_processed_by'] ?? '',
         'event_type': 'exit',
         'method': 'auto',
         'processed_by': processedBy,
@@ -335,6 +370,189 @@ class FirestoreService {
         'is_auto_exit': true,
       });
     }
+
+    await batch.commit();
+  }
+
+  // ─── Site Settings ───────────────────────────────────────────────────────
+
+  Future<SiteSettings?> getSiteSettings(String siteId) async {
+    try {
+      final doc = await _siteSettings.doc(siteId).get();
+      if (!doc.exists) return null;
+      return SiteSettings.fromMap(
+          doc.data() as Map<String, dynamic>, doc.id);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<void> updateOverstayThreshold(String siteId, int hours) async {
+    await _siteSettings.doc(siteId).set(
+      {'overstay_threshold_hours': hours},
+      SetOptions(merge: true),
+    );
+  }
+
+  // ─── Overstay ────────────────────────────────────────────────────────────
+
+  /// Returns workers currently inside whose last_event_time exceeds threshold.
+  /// siteId retained as parameter for future multi-site expansion — unused
+  /// in queries since presence_tracker has no site_id field (single township).
+  Stream<List<Map<String, dynamic>>> overstayWorkers(
+      String siteId, int thresholdHours) {
+    final cutoff = Timestamp.fromDate(
+      DateTime.now().subtract(Duration(hours: thresholdHours)),
+    );
+    return _presence
+        .where('current_status', isEqualTo: 'inside')
+        .where('last_event_time', isLessThan: cutoff)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => {...d.data() as Map<String, dynamic>, 'id': d.id})
+            .toList());
+  }
+
+  // ─── Active Workers Count ────────────────────────────────────────────────
+
+  /// Workers currently inside the township gate.
+  Stream<int> activeWorkersInsideCount() {
+    return _presence
+        .where('current_status', isEqualTo: 'inside')
+        .snapshots()
+        .map((snap) => snap.size);
+  }
+
+  /// All registered and approved workers (not terminated/blacklisted).
+  Stream<int> totalActiveWorkersCount() {
+    return _workers
+        .where('status', isEqualTo: 'active')
+        .snapshots()
+        .map((snap) => snap.size);
+  }
+
+  // ─── Termination Requests (Security Manager flow) ────────────────────────
+
+  Stream<List<TerminationRequestModel>> watchTerminationRequests() {
+    return _terminationRequests
+        .where('status', isEqualTo: 'pending')
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => TerminationRequestModel.fromFirestore(d))
+            .toList());
+  }
+
+  Future<void> submitTerminationRequest({
+    required String workerId,
+    required String workerName,
+    required String cardNumber,
+    required String reason,
+    required String initiatedBy,
+    required String initiatorRole,
+  }) async {
+    await _terminationRequests.add({
+      'worker_id': workerId,
+      'worker_name': workerName,
+      'card_number': cardNumber,
+      'reason': reason,
+      'initiated_by': initiatedBy,
+      'initiator_role': initiatorRole,
+      'status': 'pending',
+      'created_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> resolveTerminationRequest({
+    required String requestId,
+    required String workerId,
+    required String decision, // 'approved' | 'rejected'
+  }) async {
+    final batch = _db.batch();
+
+    batch.update(_terminationRequests.doc(requestId), {'status': decision});
+
+    if (decision == 'approved') {
+      batch.update(_workers.doc(workerId), {
+        'status': 'terminated',
+        'card_active': false,
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+  }
+
+  /// One-time fetch of all active workers for local cache.
+  /// Called by ClerkDashboard on startup and on reconnect.
+  Future<List<Map<String, dynamic>>> getActiveWorkersSnapshot() async {
+    final snap = await _workers
+        .where('status', whereIn: ['active', 'suspended'])
+        .get();
+    return snap.docs
+        .map((d) => {...d.data() as Map<String, dynamic>, 'id': d.id})
+        .toList();
+  }
+
+  // ─── Blacklist ───────────────────────────────────────────────────────────
+
+  Stream<List<BlacklistEntryModel>> watchBlacklistEntries() {
+    return _blacklist
+        .where('is_active', isEqualTo: true)
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => BlacklistEntryModel.fromFirestore(d))
+            .toList());
+  }
+
+  Future<void> addToBlacklist({
+    required String workerId,
+    required String workerName,
+    required String cardNumber,
+    required String reason,
+    required String blacklistedBy,
+    required String blacklistedByRole,
+  }) async {
+    final batch = _db.batch();
+
+    batch.set(_blacklist.doc(workerId), {
+      'worker_id': workerId,
+      'worker_name': workerName,
+      'card_number': cardNumber,
+      'reason': reason,
+      'blacklisted_by': blacklistedBy,
+      'blacklisted_by_role': blacklistedByRole,
+      'is_active': true,
+      'override_by': null,
+      'created_at': FieldValue.serverTimestamp(),
+    });
+
+    batch.update(_workers.doc(workerId), {
+      'card_active': false,
+      'status': 'blacklisted',
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+  }
+
+  Future<void> overrideBlacklist({
+    required String workerId,
+    required String overrideByUid,
+  }) async {
+    final batch = _db.batch();
+
+    batch.update(_blacklist.doc(workerId), {
+      'is_active': false,
+      'override_by': overrideByUid,
+    });
+
+    batch.update(_workers.doc(workerId), {
+      'card_active': true,
+      'status': 'active',
+      'updated_at': FieldValue.serverTimestamp(),
+    });
 
     await batch.commit();
   }

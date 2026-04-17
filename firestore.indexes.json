@@ -1,0 +1,37 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "presence_tracker",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "current_status", "order": "ASCENDING" },
+        { "fieldPath": "last_event_time", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "termination_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "manager_decision", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "termination_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "blacklist",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "is_active", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -3,14 +3,65 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../config/themes.dart';
 import '../../../core/models/presence_model.dart';
+import '../../../core/services/connectivity_service.dart';
+import '../../../core/services/cache_service.dart';
 import '../../../providers/auth_provider.dart';
 
-class ClerkDashboard extends ConsumerWidget {
+class ClerkDashboard extends ConsumerStatefulWidget {
   const ClerkDashboard({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ClerkDashboard> createState() => _ClerkDashboardState();
+}
+
+class _ClerkDashboardState extends ConsumerState<ClerkDashboard> {
+  String _lastSyncLabel = 'Checking...';
+
+  @override
+  void initState() {
+    super.initState();
+    _syncCache();
+  }
+
+  // ─── Sync active workers to local cache when online ──────────────────────
+
+  Future<void> _syncCache() async {
     final firestoreService = ref.read(firestoreServiceProvider);
+    final cacheService = ref.read(cacheServiceProvider);
+    final connectivityService = ref.read(connectivityServiceProvider);
+
+    final online = await connectivityService.isOnline;
+    if (!online) {
+      final label = await cacheService.getLastSyncLabel();
+      if (mounted) setState(() => _lastSyncLabel = label);
+      return;
+    }
+
+    try {
+      // Pull active workers snapshot and write to cache
+      final snap = await firestoreService.getActiveWorkersSnapshot();
+      await cacheService.cacheActiveWorkers(snap);
+      final label = await cacheService.getLastSyncLabel();
+      if (mounted) setState(() => _lastSyncLabel = label);
+    } catch (_) {
+      final label = await cacheService.getLastSyncLabel();
+      if (mounted) setState(() => _lastSyncLabel = label);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final firestoreService = ref.read(firestoreServiceProvider);
+    final connectivityAsync = ref.watch(connectivityStreamProvider);
+
+    // Re-sync cache whenever connection is restored
+    ref.listen(connectivityStreamProvider, (previous, next) {
+      final wasOffline = previous?.valueOrNull == false;
+      final isNowOnline = next.valueOrNull == true;
+      if (wasOffline && isNowOnline) _syncCache();
+    });
+
+    final isOnline = connectivityAsync.valueOrNull ?? true;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -29,7 +80,15 @@ class ClerkDashboard extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          // Presence counter banner
+          // ── Offline banner ──────────────────────────────────────────────
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: isOnline
+                ? const SizedBox.shrink()
+                : _OfflineBanner(lastSyncLabel: _lastSyncLabel),
+          ),
+
+          // ── Presence counter ────────────────────────────────────────────
           StreamBuilder<List<PresenceModel>>(
             stream: firestoreService.watchWorkersInside(),
             builder: (context, snapshot) {
@@ -44,7 +103,8 @@ class ClerkDashboard extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                        color:
+                            AppTheme.primaryColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.people_outline,
@@ -67,7 +127,8 @@ class ClerkDashboard extends ConsumerWidget {
                     ),
                     const Spacer(),
                     TextButton.icon(
-                      onPressed: () => context.push('/clerk/inside-list'),
+                      onPressed: () =>
+                          context.push('/clerk/inside-list'),
                       icon: const Icon(Icons.list_alt_outlined, size: 18),
                       label: const Text('View All'),
                     ),
@@ -77,7 +138,7 @@ class ClerkDashboard extends ConsumerWidget {
             },
           ),
 
-          // Main scan button
+          // ── Main scan button ────────────────────────────────────────────
           Expanded(
             child: Center(
               child: Column(
@@ -93,7 +154,8 @@ class ClerkDashboard extends ConsumerWidget {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.4),
+                            color: AppTheme.primaryColor
+                                .withValues(alpha: 0.4),
                             blurRadius: 30,
                             spreadRadius: 5,
                           ),
@@ -116,13 +178,20 @@ class ClerkDashboard extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Text('Tap to scan worker QR code',
-                      style: TextStyle(
-                          color: Colors.grey.shade500, fontSize: 14)),
+                  Text(
+                    isOnline
+                        ? 'Tap to scan worker QR code'
+                        : 'Offline — using cached worker data',
+                    style: TextStyle(
+                        color: isOnline
+                            ? Colors.grey.shade500
+                            : Colors.orange.shade700,
+                        fontSize: 14),
+                  ),
                   const SizedBox(height: 40),
-                  // Manual search option
                   OutlinedButton.icon(
-                    onPressed: () => context.push('/clerk/manual-search'),
+                    onPressed: () =>
+                        context.push('/clerk/manual-search'),
                     icon: const Icon(Icons.search),
                     label: const Text('Manual Search'),
                     style: OutlinedButton.styleFrom(
@@ -135,7 +204,7 @@ class ClerkDashboard extends ConsumerWidget {
             ),
           ),
 
-          // Recent events
+          // ── Recent events ───────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Row(
@@ -159,12 +228,14 @@ class ClerkDashboard extends ConsumerWidget {
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return Center(
                     child: Text('No events today',
-                        style: TextStyle(color: Colors.grey.shade500)),
+                        style:
+                            TextStyle(color: Colors.grey.shade500)),
                   );
                 }
                 final events = snapshot.data!.take(5).toList();
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: events.length,
                   itemBuilder: (context, index) {
                     final event = events[index];
@@ -181,13 +252,16 @@ class ClerkDashboard extends ConsumerWidget {
                               ? Icons.login_outlined
                               : Icons.logout_outlined,
                           size: 16,
-                          color: isEntry ? Colors.green : Colors.red,
+                          color:
+                              isEntry ? Colors.green : Colors.red,
                         ),
                       ),
                       title: Text(event.workerId,
                           style: const TextStyle(fontSize: 13)),
                       subtitle: Text(
-                        event.processedAt.toString().substring(11, 16),
+                        event.processedAt
+                            .toString()
+                            .substring(11, 16),
                         style: const TextStyle(fontSize: 11),
                       ),
                       trailing: Container(
@@ -203,7 +277,8 @@ class ClerkDashboard extends ConsumerWidget {
                           isEntry ? 'Entry' : 'Exit',
                           style: TextStyle(
                             fontSize: 11,
-                            color: isEntry ? Colors.green : Colors.red,
+                            color:
+                                isEntry ? Colors.green : Colors.red,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -220,3 +295,52 @@ class ClerkDashboard extends ConsumerWidget {
     );
   }
 }
+
+// ─── Offline Banner Widget ────────────────────────────────────────────────────
+
+class _OfflineBanner extends StatelessWidget {
+  final String lastSyncLabel;
+
+  const _OfflineBanner({required this.lastSyncLabel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('offline_banner'),
+      width: double.infinity,
+      padding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: Colors.orange.shade700,
+      child: Row(
+        children: [
+          const Icon(Icons.wifi_off, color: Colors.white, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'You are offline',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13),
+                ),
+                Text(
+                  lastSyncLabel,
+                  style: const TextStyle(
+                      color: Colors.white70, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          const Text(
+            'Data will sync when online',
+            style: TextStyle(color: Colors.white70, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

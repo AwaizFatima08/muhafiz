@@ -17,6 +17,7 @@ class GateEventHandler {
     final firestoreService = ref.read(firestoreServiceProvider);
     final now = DateTime.now();
 
+    // ── Create gate event ──────────────────────────────────────────────────
     final event = GateEventModel(
       id: '',
       workerId: worker.id,
@@ -34,12 +35,22 @@ class GateEventHandler {
 
     await firestoreService.createGateEvent(event);
 
+    // ── Update presence ────────────────────────────────────────────────────
     await firestoreService.setPresence(worker.id, {
       'current_status': eventType == 'entry' ? 'inside' : 'outside',
       'last_event_type': eventType,
       'last_event_time': Timestamp.fromDate(now),
       'last_processed_by': processedBy,
+      'worker_name': worker.workerName,
+      'card_number': worker.cardNumber,
       'updated_at': Timestamp.fromDate(now),
     });
+
+    // ── FCM notification triggered by Cloud Function automatically ─────────
+    // The Cloud Function watches gate_events collection.
+    // No direct FCM call needed here — the function handles it server-side.
+    // worker_name and employer_id are included in the event so the
+    // Cloud Function can look up the employer's FCM token and send.
   }
 }
+

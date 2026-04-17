@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Internal app documents directory -->
+    <files-path name="internal_files" path="."/>
+    <!-- External app documents directory -->
+    <external-files-path name="external_files" path="."/>
+    <!-- Downloads folder (Android 10 and below) -->
+    <external-path name="external_storage" path="."/>
+    <!-- Cache directory -->
+    <cache-path name="cache" path="."/>
+</paths>

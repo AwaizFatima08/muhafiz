@@ -3,16 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../features/auth/screens/login_screen.dart';
-import '../features/security_manager/screens/manager_dashboard.dart';
+import '../features/security_manager/screens/security_manager_dashboard.dart';
 import '../features/security_supervisor/screens/supervisor_dashboard.dart';
 import '../features/gate_clerk/screens/clerk_dashboard.dart';
 import '../features/employer/screens/employer_dashboard.dart';
 import '../features/security_supervisor/screens/worker_registration_screen.dart';
-import '../features/security_manager/screens/pending_approvals_screen.dart';
 import '../features/gate_clerk/screens/qr_scan_screen.dart';
 import '../features/gate_clerk/screens/manual_search_screen.dart';
 import '../features/gate_clerk/screens/inside_workers_screen.dart';
 import '../features/gate_clerk/screens/gate_log_screen.dart';
+import '../features/security_manager/screens/reports_screen.dart';
 import '../core/enums/app_enums.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -59,29 +59,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/login',
         builder: (context, state) => const LoginScreen(),
       ),
+
+      // ── Security Manager ───────────────────────────────────────────────
+      // SecurityManagerDashboard is a home screen with 4 tabs:
+      // Overview / Approvals / Terminations / Blacklist
       GoRoute(
         path: '/manager',
-        builder: (context, state) => const ManagerDashboard(),
+        builder: (context, state) => const SecurityManagerDashboard(),
       ),
+
+      // ── Security Supervisor ────────────────────────────────────────────
       GoRoute(
         path: '/supervisor',
         builder: (context, state) => const SupervisorDashboard(),
       ),
       GoRoute(
-        path: '/clerk',
-        builder: (context, state) => const ClerkDashboard(),
-      ),
-      GoRoute(
-        path: '/employer',
-        builder: (context, state) => const EmployerDashboard(),
-      ),
-      GoRoute(
         path: '/register-worker',
         builder: (context, state) => const WorkerRegistrationScreen(),
       ),
+
+      // ── Gate Clerk ─────────────────────────────────────────────────────
       GoRoute(
-        path: '/pending-approvals',
-        builder: (context, state) => const PendingApprovalsScreen(),
+        path: '/clerk',
+        builder: (context, state) => const ClerkDashboard(),
       ),
       GoRoute(
         path: '/clerk/scan',
@@ -100,20 +100,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const GateLogScreen(),
       ),
       GoRoute(
-        path: '/clerk/inside-list',
-        builder: (context, state) => const InsideWorkersScreen(),
+        path: '/reports',
+        builder: (context, state) => const ReportsScreen(),
       ),
+      // ── Employer ───────────────────────────────────────────────────────
       GoRoute(
-        path: '/clerk/gate-log',
-        builder: (context, state) => const GateLogScreen(),
-      ),
-      GoRoute(
-        path: '/clerk/inside-list',
-        builder: (context, state) => const InsideWorkersScreen(),
-      ),
-      GoRoute(
-        path: '/clerk/gate-log',
-        builder: (context, state) => const GateLogScreen(),
+        path: '/employer',
+        builder: (context, state) => const EmployerDashboard(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
