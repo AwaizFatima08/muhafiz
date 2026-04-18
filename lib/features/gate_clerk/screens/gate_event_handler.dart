@@ -17,6 +17,21 @@ class GateEventHandler {
     final firestoreService = ref.read(firestoreServiceProvider);
     final now = DateTime.now();
 
+    // ── Shift enforcement check ───────────────────────────────────────────
+    bool shiftViolated = false;
+    if (assignment != null &&
+        assignment.shiftEnforcement &&
+        eventType == 'entry' &&
+        assignment.shiftStart != null &&
+        assignment.shiftEnd != null) {
+      final nowStr =
+          '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+      final start = assignment.shiftStart!.replaceAll(':', '');
+      final end   = assignment.shiftEnd!.replaceAll(':', '');
+      shiftViolated = nowStr.compareTo(start) < 0 ||
+          nowStr.compareTo(end) > 0;
+    }
+
     // ── Create gate event ──────────────────────────────────────────────────
     final event = GateEventModel(
       id: '',
@@ -26,7 +41,11 @@ class GateEventHandler {
       method: 'qrScan',
       processedBy: processedBy,
       processedAt: now,
-      warningFlags: overrideReason != null ? {'override_applied': true} : {},
+      warningFlags: {
+        if (overrideReason != null) 'override_applied': true,
+        if (shiftViolated) 'shift_violation': true,
+      },
+      shiftViolated: shiftViolated,
       overrideApplied: overrideReason != null,
       overrideReason: overrideReason,
       syncStatus: 'synced',
@@ -43,6 +62,7 @@ class GateEventHandler {
       'last_processed_by': processedBy,
       'worker_name': worker.workerName,
       'card_number': worker.cardNumber,
+      'resident_id': assignment?.residentId ?? '',
       'updated_at': Timestamp.fromDate(now),
     });
 

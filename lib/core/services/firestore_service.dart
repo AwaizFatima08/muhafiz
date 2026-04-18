@@ -128,6 +128,18 @@ class FirestoreService {
     }
   }
 
+  Future<ResidentModel?> residentByHouseNumber(String houseNumber) async {
+    try {
+      final snap = await _residents
+          .where('house_number', isEqualTo: houseNumber)
+          .where('is_active', isEqualTo: true)
+          .limit(1)
+          .get();
+      if (snap.docs.isEmpty) return null;
+      return ResidentModel.fromFirestore(snap.docs.first);
+    } catch (e) { return null; }
+  }
+
   Future<bool> residentCnicExists(String cnic) async {
     try {
       final snap = await _residents

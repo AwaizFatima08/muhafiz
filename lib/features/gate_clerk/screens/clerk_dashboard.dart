@@ -199,6 +199,39 @@ class _ClerkDashboardState extends ConsumerState<ClerkDashboard> {
                           horizontal: 24, vertical: 12),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            context.push('/clerk/guest-entry'),
+                        icon: const Icon(Icons.person_add_outlined,
+                            size: 18),
+                        label: const Text('Guest Entry'),
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            context.push('/clerk/guest-exit'),
+                        icon: const Icon(Icons.qr_code_outlined,
+                            size: 18),
+                        label: const Text('Guest Exit'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        context.push('/clerk/vehicle-log'),
+                    icon: const Icon(
+                        Icons.directions_car_outlined, size: 18),
+                    label: const Text('Log Vehicle'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                    ),
+                  ),
                 ],
               ),
             ),
