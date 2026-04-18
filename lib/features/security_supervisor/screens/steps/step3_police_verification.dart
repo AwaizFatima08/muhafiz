@@ -86,7 +86,7 @@ class _Step3PoliceVerificationState
       final assignment = WorkerAssignmentModel(
         id: '',
         workerId: workerId,
-        employerId: formState.employerId,
+        residentId: formState.employerId,
         houseNumber: formState.houseNumber,
         arrivalWindow: formState.arrivalWindow,
         status: AssignmentStatus.active,

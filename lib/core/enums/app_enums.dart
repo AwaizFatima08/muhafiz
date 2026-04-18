@@ -3,7 +3,7 @@ enum UserRole {
   securityManager,
   securitySupervisor,
   gateClerk,
-  employer,
+  resident,   // replaces employer
   worker,
 }
 
@@ -98,6 +98,11 @@ enum NotificationType {
   blacklistAlert,
   verifExpiry,
   contractExpiry,
+  guestArrival,
+  guestExit,
+  petApproval,
+  announcement,
+  cardExpiry,
 }
 
 enum SyncStatus {
@@ -109,8 +114,73 @@ enum ReportType {
   dailyGateLog,
   presenceSnapshot,
   activeWorkerList,
-  employerStaffList,
+  residentStaffList,
   multipleFlagsHistory,
   expiryAlerts,
   overrideLog,
+  guestVisitLog,
+  vehicleLog,
+  emergencyMuster,
+  accessFrequency,
+  petRegistry,
+}
+
+// ── V2 new enums ──────────────────────────────────────────────────────────────
+
+enum VehicleType {
+  car,
+  motorcycle,
+  van,
+  truck,
+  other,
+}
+
+enum VehicleEventMethod {
+  rfid,       // future — when hardware live
+  manual,     // current operational mode
+  qr,
+}
+
+enum GuestVisitStatus {
+  inside,
+  exited,
+  expired,
+}
+
+enum PetStatus {
+  pending,
+  approved,
+  rejected,
+}
+
+enum PetType {
+  dog,
+  cat,
+  bird,
+  other,
+}
+
+enum FamilyRelation {
+  son,
+  daughter,
+  wife,
+  husband,
+  father,
+  mother,
+  brother,
+  sister,
+  other,
+}
+
+enum InitiatedByRole {
+  resident,
+  gateClerk,
+  securitySupervisor,
+  securityManager,
+}
+
+enum ResidentStatus {
+  pending,
+  approved,
+  suspended,
 }

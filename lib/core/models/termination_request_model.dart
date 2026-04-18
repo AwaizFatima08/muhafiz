@@ -7,7 +7,7 @@ class TerminationRequestModel {
   final String cardNumber;
   final String reason;
   final String initiatedBy;
-  final String initiatorRole; // 'employer' | 'securityManager'
+  final String initiatorRole; // 'resident' | 'gateClerk' | 'securitySupervisor' | 'securityManager'
   final String status;        // 'pending' | 'approved' | 'rejected'
   final DateTime createdAt;
 

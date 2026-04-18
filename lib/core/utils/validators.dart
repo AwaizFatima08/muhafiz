@@ -44,6 +44,21 @@ class Validators {
     return null;
   }
 
+  /// Pakistani vehicle registration number (e.g. LEA-1234 or LZR-123)
+  static String? vehiclePlate(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Registration number is required';
+    final clean = value.trim().toUpperCase();
+    final regex = RegExp(r'^[A-Z]{2,4}-\d{3,4}$');
+    if (!regex.hasMatch(clean)) return 'Format: ABC-1234';
+    return null;
+  }
+
+  /// Vehicle registration number (official doc number, free text)
+  static String? vehicleRegNumber(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Registration number is required';
+    return null;
+  }
+
   /// Minimum age check (default 18)
   static String? minimumAge(DateTime? dob, {int minAge = 18}) {
     if (dob == null) return 'Date of birth is required';

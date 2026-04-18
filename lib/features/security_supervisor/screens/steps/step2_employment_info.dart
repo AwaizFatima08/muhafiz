@@ -17,7 +17,7 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
   final _arrivalController = TextEditingController();
   String? _selectedEmployerId;
   bool _loadingEmployers = true;
-  List<Map<String, String>> _employers = [];
+  List<Map<String, dynamic>> _employers = [];
 
   @override
   void initState() {
@@ -31,11 +31,11 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
 
   Future<void> _loadEmployers() async {
     final firestoreService = ref.read(firestoreServiceProvider);
-    final employers = await firestoreService.watchActiveEmployers().first;
+    final employers = await firestoreService.watchActiveResidents().first;
     if (mounted) {
       setState(() {
         _employers = employers
-            .map((e) => {'id': e.id, 'name': e.name, 'unit': e.unit})
+            .map((e) => {'id': e['id'] ?? '', 'name': e['name'] ?? '', 'unit': e['unit'] ?? ''})
             .toList();
         _loadingEmployers = false;
       });

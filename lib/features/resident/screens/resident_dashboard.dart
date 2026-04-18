@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/themes.dart';
-import '../../../core/models/worker_model.dart';
 import '../../../core/models/worker_assignment_model.dart';
 import '../../../core/models/presence_model.dart';
 import '../../../providers/auth_provider.dart';
 
-class EmployerDashboard extends ConsumerWidget {
-  const EmployerDashboard({super.key});
+class ResidentDashboard extends ConsumerWidget {
+  const ResidentDashboard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -72,7 +71,6 @@ class EmployerDashboard extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // Summary row
                 Row(
                   children: [
                     _SummaryChip(
@@ -187,22 +185,22 @@ class _StaffCard extends StatelessWidget {
       elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: FutureBuilder<WorkerModel?>(
-          future: firestoreService.getWorker(assignment.workerId),
-          builder: (context, workerSnap) {
-            final worker = workerSnap.data;
-
+        child: StreamBuilder<PresenceModel?>(
+          stream: firestoreService.watchWorkerPresence(assignment.workerId),
+          builder: (context, presSnap) {
+            final isInside =
+                presSnap.data?.currentStatus == 'inside';
             return Row(
               children: [
                 Container(
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    color: const Color(0xFF1a3a5c).withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.person,
-                      color: AppTheme.primaryColor, size: 28),
+                      color: Color(0xFF1a3a5c), size: 28),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -210,17 +208,9 @@ class _StaffCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        worker?.workerName ?? 'Loading...',
+                        assignment.workerId,
                         style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        worker?.cardNumber ?? '',
-                        style: TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -231,42 +221,30 @@ class _StaffCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                StreamBuilder<PresenceModel?>(
-                  stream: firestoreService
-                      .watchWorkerPresence(assignment.workerId),
-                  builder: (context, presSnap) {
-                    final isInside =
-                        presSnap.data?.currentStatus == 'inside';
-                    return Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: isInside
-                                ? Colors.green.withValues(alpha: 0.1)
-                                : Colors.grey.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isInside
-                                  ? Colors.green.withValues(alpha: 0.4)
-                                  : Colors.grey.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Text(
-                            isInside ? 'Inside' : 'Outside',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isInside
-                                  ? Colors.green
-                                  : Colors.grey.shade600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: isInside
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : Colors.grey.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isInside
+                          ? Colors.green.withValues(alpha: 0.4)
+                          : Colors.grey.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    isInside ? 'Inside' : 'Outside',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isInside
+                          ? Colors.green
+                          : Colors.grey.shade600,
+                    ),
+                  ),
                 ),
               ],
             );

@@ -6,7 +6,7 @@ import '../features/auth/screens/login_screen.dart';
 import '../features/security_manager/screens/security_manager_dashboard.dart';
 import '../features/security_supervisor/screens/supervisor_dashboard.dart';
 import '../features/gate_clerk/screens/clerk_dashboard.dart';
-import '../features/employer/screens/employer_dashboard.dart';
+import '../features/resident/screens/resident_dashboard.dart';
 import '../features/security_supervisor/screens/worker_registration_screen.dart';
 import '../features/gate_clerk/screens/qr_scan_screen.dart';
 import '../features/gate_clerk/screens/manual_search_screen.dart';
@@ -45,8 +45,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             return '/supervisor';
           case UserRole.gateClerk:
             return '/clerk';
-          case UserRole.employer:
-            return '/employer';
+          case UserRole.resident:
+            return '/resident';
           case UserRole.worker:
             return '/login';
         }
@@ -103,10 +103,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/reports',
         builder: (context, state) => const ReportsScreen(),
       ),
-      // ── Employer ───────────────────────────────────────────────────────
+      // ── Resident ───────────────────────────────────────────────────────
       GoRoute(
-        path: '/employer',
-        builder: (context, state) => const EmployerDashboard(),
+        path: '/resident',
+        builder: (context, state) => const ResidentDashboard(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

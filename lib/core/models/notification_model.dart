@@ -4,8 +4,8 @@ import '../enums/app_enums.dart';
 class NotificationModel {
   final String id;
   final String recipientUserId;
-  final String recipientEmployerId;
-  final String employeeId;
+  final String recipientResidentId;
+  final String? workerId;
   final NotificationType type;
   final String title;
   final String body;
@@ -16,8 +16,8 @@ class NotificationModel {
   NotificationModel({
     required this.id,
     required this.recipientUserId,
-    required this.recipientEmployerId,
-    required this.employeeId,
+    required this.recipientResidentId,
+    this.workerId,
     required this.type,
     required this.title,
     required this.body,
@@ -30,32 +30,34 @@ class NotificationModel {
     final data = doc.data() as Map<String, dynamic>;
     return NotificationModel(
       id: doc.id,
-      recipientUserId: data['recipientUserId'] ?? '',
-      recipientEmployerId: data['recipientEmployerId'] ?? '',
-      employeeId: data['employeeId'] ?? '',
+      recipientUserId: data['recipient_user_id'] ?? data['recipientUserId'] ?? '',
+      recipientResidentId: data['recipient_resident_id'] ?? data['recipientEmployerId'] ?? '',
+      workerId: data['workerId'] ?? data['worker_id'],
       type: NotificationType.values.firstWhere(
         (e) => e.name == data['type'],
         orElse: () => NotificationType.entry,
       ),
       title: data['title'] ?? '',
       body: data['body'] ?? '',
-      isRead: data['isRead'] ?? false,
+      isRead: data['is_read'] ?? data['isRead'] ?? false,
       channel: data['channel'] ?? 'inApp',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      createdAt: data['created_at'] != null
+          ? (data['created_at'] as Timestamp).toDate()
+          : (data['createdAt'] as Timestamp).toDate(),
     );
   }
 
   Map<String, dynamic> toFirestore() {
     return {
-      'recipientUserId': recipientUserId,
-      'recipientEmployerId': recipientEmployerId,
-      'employeeId': employeeId,
+      'recipient_user_id': recipientUserId,
+      'recipient_resident_id': recipientResidentId,
+      'workerId': workerId,
       'type': type.name,
       'title': title,
       'body': body,
-      'isRead': isRead,
+      'is_read': isRead,
       'channel': channel,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'created_at': Timestamp.fromDate(createdAt),
     };
   }
 
@@ -63,8 +65,8 @@ class NotificationModel {
     return NotificationModel(
       id: id,
       recipientUserId: recipientUserId,
-      recipientEmployerId: recipientEmployerId,
-      employeeId: employeeId,
+      recipientResidentId: recipientResidentId,
+      workerId: workerId,
       type: type,
       title: title,
       body: body,

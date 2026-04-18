@@ -6,6 +6,7 @@ class UserModel {
   final String name;
   final String email;
   final String phone;
+  final String? grade;
   final UserRole role;
   final bool isActive;
   final DateTime createdAt;
@@ -16,6 +17,7 @@ class UserModel {
     required this.name,
     required this.email,
     required this.phone,
+    this.grade,
     required this.role,
     required this.isActive,
     required this.createdAt,
@@ -29,9 +31,10 @@ class UserModel {
       name: data['name'] ?? '',
       email: data['email'] ?? '',
       phone: data['phone'] ?? '',
+      grade: data['grade'],
       role: UserRole.values.firstWhere(
         (e) => e.name == data['role'],
-        orElse: () => UserRole.employer,
+        orElse: () => UserRole.resident,
       ),
       isActive: data['is_active'] ?? false,
       createdAt: (data['created_at'] as Timestamp).toDate(),
@@ -46,6 +49,7 @@ class UserModel {
       'name': name,
       'email': email,
       'phone': phone,
+      'grade': grade,
       'role': role.name,
       'is_active': isActive,
       'created_at': Timestamp.fromDate(createdAt),
@@ -56,6 +60,7 @@ class UserModel {
   UserModel copyWith({
     String? name,
     String? phone,
+    String? grade,
     UserRole? role,
     bool? isActive,
     DateTime? lastLogin,
@@ -65,6 +70,7 @@ class UserModel {
       name: name ?? this.name,
       email: email,
       phone: phone ?? this.phone,
+      grade: grade ?? this.grade,
       role: role ?? this.role,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt,

@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/worker_model.dart';
-import '../models/employer_model.dart';
 import '../models/worker_assignment_model.dart';
 import '../models/gate_event_model.dart';
 import '../models/presence_model.dart';
@@ -20,7 +19,7 @@ class FirestoreService {
   // ─── Collection References ───────────────────────────────────────────────
 
   CollectionReference get _workers => _db.collection('workers');
-  CollectionReference get _employers => _db.collection('employers');
+  CollectionReference get _residents => _db.collection('residents');
   CollectionReference get _assignments => _db.collection('worker_assignments');
   CollectionReference get _gateEvents => _db.collection('gate_events');
   CollectionReference get _presence => _db.collection('presence_tracker');
@@ -104,22 +103,22 @@ class FirestoreService {
 
   // ─── Employers ───────────────────────────────────────────────────────────
 
-  Future<EmployerModel?> getEmployer(String employerId) async {
+  Future<Map<String, dynamic>?> getResident(String residentId) async {
     try {
-      final doc = await _employers.doc(employerId).get();
+      final doc = await _residents.doc(residentId).get();
       if (!doc.exists) return null;
-      return EmployerModel.fromFirestore(doc);
+      return {...doc.data() as Map<String, dynamic>, 'id': doc.id};
     } catch (e) {
       return null;
     }
   }
 
-  Stream<List<EmployerModel>> watchActiveEmployers() {
-    return _employers
+  Stream<List<Map<String, dynamic>>> watchActiveResidents() {
+    return _residents
         .where('is_active', isEqualTo: true)
         .snapshots()
         .map((snap) => snap.docs
-            .map((doc) => EmployerModel.fromFirestore(doc))
+            .map((doc) => {...doc.data() as Map<String, dynamic>, 'id': doc.id})
             .toList());
   }
 
@@ -131,7 +130,7 @@ class FirestoreService {
     required String token,
   }) async {
     try {
-      await _employers.doc(userId).set(
+      await _residents.doc(userId).set(
         {'fcm_token': token, 'updated_at': FieldValue.serverTimestamp()},
         SetOptions(merge: true),
       );
@@ -156,11 +155,11 @@ class FirestoreService {
     }
   }
 
-  Future<List<WorkerAssignmentModel>> getAssignmentsForEmployer(
-      String employerId) async {
+  Future<List<WorkerAssignmentModel>> getAssignmentsForResident(
+      String residentId) async {
     try {
       final snap = await _assignments
-          .where('employerId', isEqualTo: employerId)
+          .where('resident_id', isEqualTo: residentId)
           .where('status', isEqualTo: 'active')
           .get();
       return snap.docs
@@ -175,7 +174,7 @@ class FirestoreService {
       String workerId) async {
     try {
       final snap = await _assignments
-          .where('workerId', isEqualTo: workerId)
+          .where('worker_id', isEqualTo: workerId)
           .where('status', isEqualTo: 'active')
           .limit(1)
           .get();
@@ -356,9 +355,8 @@ class FirestoreService {
 
       final eventRef = _gateEvents.doc();
       batch.set(eventRef, {
-        'workerId': workerId,
-        'employerId':
-            (doc.data() as Map<String, dynamic>?)?['last_processed_by'] ?? '',
+        'worker_id': workerId,
+        'resident_id': (doc.data() as Map<String, dynamic>?)?['resident_id'] ?? '',
         'event_type': 'exit',
         'method': 'auto',
         'processed_by': processedBy,

@@ -43,9 +43,14 @@ class SubEmployerEntry {
 class WorkerAssignmentModel {
   final String id;
   final String workerId;
-  final String employerId;
+  final String residentId;
   final String houseNumber;
   final String arrivalWindow;
+  final String? shiftStart;
+  final String? shiftEnd;
+  final bool shiftEnforcement;
+  final String? assignedBy;
+  final DateTime? assignedAt;
   final AssignmentStatus status;
   final String approvedBy;
   final DateTime approvedAt;
@@ -54,9 +59,14 @@ class WorkerAssignmentModel {
   WorkerAssignmentModel({
     required this.id,
     required this.workerId,
-    required this.employerId,
+    required this.residentId,
     required this.houseNumber,
     required this.arrivalWindow,
+    this.shiftStart,
+    this.shiftEnd,
+    this.shiftEnforcement = false,
+    this.assignedBy,
+    this.assignedAt,
     required this.status,
     required this.approvedBy,
     required this.approvedAt,
@@ -67,10 +77,16 @@ class WorkerAssignmentModel {
     final data = doc.data() as Map<String, dynamic>;
     return WorkerAssignmentModel(
       id: doc.id,
-      workerId: data['workerId'] ?? '',
-      employerId: data['employerId'] ?? '',
+      workerId: data['worker_id'] ?? data['workerId'] ?? '',
+      residentId: data['resident_id'] ?? data['employerId'] ?? '',
       houseNumber: data['house_number'] ?? '',
       arrivalWindow: data['arrival_window'] ?? '',
+      shiftStart: data['shift_start'],
+      shiftEnd: data['shift_end'],
+      shiftEnforcement: data['shift_enforcement'] == true,
+      assignedBy: data['assigned_by'],
+      assignedAt: data['assigned_at'] != null
+          ? (data['assigned_at'] as Timestamp).toDate() : null,
       status: AssignmentStatus.values.firstWhere(
         (e) => e.name == data['status'],
         orElse: () => AssignmentStatus.active,
@@ -86,9 +102,15 @@ class WorkerAssignmentModel {
   Map<String, dynamic> toFirestore() {
     return {
       'workerId': workerId,
-      'employerId': employerId,
+      'resident_id': residentId,
       'house_number': houseNumber,
       'arrival_window': arrivalWindow,
+      'shift_start': shiftStart,
+      'shift_end': shiftEnd,
+      'shift_enforcement': shiftEnforcement,
+      'assigned_by': assignedBy,
+      'assigned_at': assignedAt != null
+          ? Timestamp.fromDate(assignedAt!) : null,
       'status': status.name,
       'approved_by': approvedBy,
       'approved_at': Timestamp.fromDate(approvedAt),

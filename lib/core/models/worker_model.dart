@@ -15,6 +15,15 @@ class WorkerModel {
   final DateTime? policeVerifDate;
   final String? policeVerifRefNumber;
   final DateTime? policeVerifExpiry;
+  final String? cnicPhotoUrlFront;
+  final String? cnicPhotoUrlBack;
+  final String? policeVerificationPhotoUrl;
+  final DateTime? cardExpiryDate;
+  final String? cardExpiryNotified;
+  final String? registeredByUid;
+  final String? registeredByRole;
+  final DateTime? approvedAt;
+  final String? approvedBy;
   final WorkerStatus status;
   final String? blacklistReason;
   final String? blacklistedBy;
@@ -38,6 +47,15 @@ class WorkerModel {
     this.policeVerifDate,
     this.policeVerifRefNumber,
     this.policeVerifExpiry,
+    this.cnicPhotoUrlFront,
+    this.cnicPhotoUrlBack,
+    this.policeVerificationPhotoUrl,
+    this.cardExpiryDate,
+    this.cardExpiryNotified,
+    this.registeredByUid,
+    this.registeredByRole,
+    this.approvedAt,
+    this.approvedBy,
     required this.status,
     this.blacklistReason,
     this.blacklistedBy,
@@ -74,6 +92,17 @@ class WorkerModel {
       policeVerifRefNumber: data['police_verification_ref_number'],
       policeVerifExpiry: data['police_verif_expiry'] != null
           ? (data['police_verif_expiry'] as Timestamp).toDate() : null,
+      cnicPhotoUrlFront: data['cnic_photo_url_front'],
+      cnicPhotoUrlBack: data['cnic_photo_url_back'],
+      policeVerificationPhotoUrl: data['police_verification_photo_url'],
+      cardExpiryDate: data['card_expiry_date'] != null
+          ? (data['card_expiry_date'] as Timestamp).toDate() : null,
+      cardExpiryNotified: data['card_expiry_notified'],
+      registeredByUid: data['registered_by_uid'],
+      registeredByRole: data['registered_by_role'],
+      approvedAt: data['approved_at'] != null
+          ? (data['approved_at'] as Timestamp).toDate() : null,
+      approvedBy: data['approved_by'],
       status: WorkerStatus.values.firstWhere(
         (e) => e.name == data['status'],
         orElse: () => WorkerStatus.pendingApproval,
@@ -106,6 +135,17 @@ class WorkerModel {
       'police_verification_ref_number': policeVerifRefNumber,
       'police_verif_expiry': policeVerifExpiry != null
           ? Timestamp.fromDate(policeVerifExpiry!) : null,
+      'cnic_photo_url_front': cnicPhotoUrlFront,
+      'cnic_photo_url_back': cnicPhotoUrlBack,
+      'police_verification_photo_url': policeVerificationPhotoUrl,
+      'card_expiry_date': cardExpiryDate != null
+          ? Timestamp.fromDate(cardExpiryDate!) : null,
+      'card_expiry_notified': cardExpiryNotified,
+      'registered_by_uid': registeredByUid,
+      'registered_by_role': registeredByRole,
+      'approved_at': approvedAt != null
+          ? Timestamp.fromDate(approvedAt!) : null,
+      'approved_by': approvedBy,
       'status': status.name,
       'blacklist_reason': blacklistReason,
       'blacklisted_by': blacklistedBy,
