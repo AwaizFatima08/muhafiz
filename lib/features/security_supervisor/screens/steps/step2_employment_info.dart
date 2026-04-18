@@ -17,6 +17,10 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
   final _arrivalController = TextEditingController();
   String? _selectedEmployerId;
   bool _loadingEmployers = true;
+  String? _arrivalFrom;
+  String? _arrivalTo;
+  static final List<String> _timeSlots = List.generate(48,
+    (i) => "${(i ~/ 2).toString().padLeft(2, '0')}:${i.isOdd ? '30' : '00'}");
   List<Map<String, dynamic>> _employers = [];
 
   @override
@@ -24,7 +28,10 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
     super.initState();
     final state = ref.read(registrationFormProvider);
     _houseController.text = state.houseNumber;
-    _arrivalController.text = state.arrivalWindow;
+    // arrivalWindow stored as 'HH:MM-HH:MM'
+    final parts = state.arrivalWindow.split('-');
+    _arrivalFrom = parts.isNotEmpty && parts[0].isNotEmpty ? parts[0] : null;
+    _arrivalTo   = parts.length > 1 && parts[1].isNotEmpty ? parts[1] : null;
     _selectedEmployerId = state.residentId.isEmpty ? null : state.residentId;
     _loadEmployers();
   }

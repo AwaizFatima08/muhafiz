@@ -4,6 +4,7 @@ class FamilyMemberModel {
   final String memberId;
   final String name;
   final FamilyRelation relation;
+  final String? cnic;          // optional, for 18+
   final String? dateOfBirth;
   final bool married;
   final bool permanentResident;
@@ -16,6 +17,7 @@ class FamilyMemberModel {
     required this.memberId,
     required this.name,
     required this.relation,
+    this.cnic,
     this.dateOfBirth,
     required this.married,
     required this.permanentResident,
@@ -33,6 +35,7 @@ class FamilyMemberModel {
         (e) => e.name == m['relation'],
         orElse: () => FamilyRelation.other,
       ),
+      cnic:                   m['cnic'],
       dateOfBirth:            m['date_of_birth'],
       married:                m['married'] ?? false,
       permanentResident:      m['permanent_resident'] ?? false,
@@ -45,6 +48,7 @@ class FamilyMemberModel {
 
   Map<String, dynamic> toMap() => {
     'name':                       name,
+    'cnic':                       cnic,
     'relation':                   relation.name,
     'date_of_birth':              dateOfBirth,
     'married':                    married,

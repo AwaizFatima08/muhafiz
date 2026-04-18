@@ -32,8 +32,12 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
 
   Future<void> _showAddEditSheet([FamilyMemberModel? existing]) async {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
-    final dlNoCtrl = TextEditingController(
+    final dlNoCtrl  = TextEditingController(
         text: existing?.drivingLicenseNumber ?? '');
+    final cnicCtrl  = TextEditingController(
+        text: existing?.cnic ?? '');
+    DateTime? dob   = existing?.dateOfBirth != null
+        ? DateTime.tryParse(existing!.dateOfBirth!) : null;
     FamilyRelation relation = existing?.relation ?? FamilyRelation.other;
     bool married = existing?.married ?? false;
     bool permanent = existing?.permanentResident ?? true;
@@ -74,6 +78,38 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
                         ))
                     .toList(),
                 onChanged: (v) => setSheet(() => relation = v!),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: cnicCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                    labelText: 'CNIC (optional, 18+)',
+                    hintText: '13 digits'),
+              ),
+              const SizedBox(height: 12),
+              // Date of Birth
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: ctx,
+                    initialDate: dob ?? DateTime(2000),
+                    firstDate: DateTime(1930),
+                    lastDate: DateTime.now(),
+                  );
+                  if (picked != null) setSheet(() => dob = picked);
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                      labelText: 'Date of Birth (optional)'),
+                  child: Text(
+                    dob != null
+                        ? '\${dob!.day}/\${dob!.month}/\${dob!.year}'
+                        : 'Select date',
+                    style: TextStyle(
+                        color: dob != null ? null : Colors.grey),
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               SwitchListTile(
@@ -121,6 +157,9 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
                             const Uuid().v4(),
                         name: nameCtrl.text.trim(),
                         relation: relation,
+                        cnic: cnicCtrl.text.trim().isEmpty
+                            ? null : cnicCtrl.text.trim(),
+                        dateOfBirth: dob?.toIso8601String(),
                         married: married,
                         permanentResident: permanent,
                         drivingLicenseHolder: dlHolder,
@@ -215,9 +254,14 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
                         style:
                             const TextStyle(fontWeight: FontWeight.w500)),
                     subtitle: Text(
-                      '\${m.relation.name[0].toUpperCase()}\${m.relation.name.substring(1)}'
-                      '\${m.permanentResident ? " • Permanent" : ""}'
-                      '\${m.drivingLicenseHolder ? " • DL Holder" : ""}',
+                      [
+                        m.relation.name[0].toUpperCase() +
+                            m.relation.name.substring(1),
+                        if (m.dateOfBirth != null)
+                          'DOB: \${m.dateOfBirth!.substring(0, 10)}',
+                        if (m.permanentResident) 'Permanent',
+                        if (m.drivingLicenseHolder) 'DL Holder',
+                      ].join(' · '),
                       style: const TextStyle(fontSize: 12),
                     ),
                     trailing: Row(

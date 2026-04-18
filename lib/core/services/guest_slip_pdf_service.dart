@@ -43,8 +43,13 @@ class GuestSlipPdfService {
     final expiryStr = fmt.format(visit.expiresAt);
 
     // Warnings
-    final enWarnings = settings.guestSlipWarnings?.english ?? {};
-    final urWarnings = settings.guestSlipWarnings?.urdu ?? {};
+    // Sort warnings by key so warning_1 before warning_2 etc
+    final enRaw = settings.guestSlipWarnings?.english ?? {};
+    final urRaw = settings.guestSlipWarnings?.urdu ?? {};
+    final enKeys = enRaw.keys.toList()..sort();
+    final urKeys = urRaw.keys.toList()..sort();
+    final enWarnings = {for (final k in enKeys) k: enRaw[k]!};
+    final urWarnings = {for (final k in urKeys) k: urRaw[k]!};
 
     pdf.addPage(
       pw.Page(

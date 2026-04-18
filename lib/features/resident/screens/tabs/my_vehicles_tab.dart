@@ -103,7 +103,7 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
               ),
               const SizedBox(height: 16),
               PhotoUploadWidget(
-                label: 'Registration card photo (optional)',
+                label: 'Registration card photo *',
                 localFile: regCardFile,
                 onFilePicked: (f) => setSheet(() => regCardFile = f),
               ),
@@ -120,6 +120,13 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
                   child: ElevatedButton(
                     onPressed: saving ? null : () async {
                       if (plateCtrl.text.trim().isEmpty) return;
+                      if (regCardFile == null) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          const SnackBar(content: Text(
+                            'Registration card photo is required')),
+                        );
+                        return;
+                      }
                       setSheet(() => saving = true);
                       final fs = ref.read(firestoreServiceProvider);
                       final storage = ref.read(storageServiceProvider);
@@ -136,6 +143,7 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
                             ? null : colourCtrl.text.trim(),
                         vehicleType: vType,
                         isActive: true,
+                        status: 'pending',
                         registeredBy: widget.residentId,
                         registeredAt: DateTime.now(),
                       );
