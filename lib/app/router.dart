@@ -7,6 +7,8 @@ import '../features/security_manager/screens/security_manager_dashboard.dart';
 import '../features/security_supervisor/screens/supervisor_dashboard.dart';
 import '../features/gate_clerk/screens/clerk_dashboard.dart';
 import '../features/resident/screens/resident_dashboard.dart';
+import '../features/resident/screens/resident_registration_screen.dart';
+import '../features/resident/screens/resident_worker_request_screen.dart';
 import '../features/security_supervisor/screens/worker_registration_screen.dart';
 import '../features/gate_clerk/screens/qr_scan_screen.dart';
 import '../features/gate_clerk/screens/manual_search_screen.dart';
@@ -30,8 +32,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Wait for both streams to settle
       if (isLoadingAuth || (isLoggedIn && isLoadingUser)) return null;
 
-      // Not logged in — always go to login
-      if (!isLoggedIn) return isLoginRoute ? null : '/login';
+      // Not logged in — allow public routes
+      final isRegisterRoute = state.matchedLocation == '/register';
+      if (!isLoggedIn) {
+        if (isLoginRoute || isRegisterRoute) return null;
+        return '/login';
+      }
 
       // Logged in but on login screen — send to correct dashboard
       if (isLoginRoute) {
@@ -107,6 +113,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/resident',
         builder: (context, state) => const ResidentDashboard(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const ResidentRegistrationScreen(),
+      ),
+      GoRoute(
+        path: '/resident/register-worker',
+        builder: (context, state) =>
+            const ResidentWorkerRequestScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

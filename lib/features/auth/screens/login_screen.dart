@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../config/themes.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -189,8 +190,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
+                TextButton(
+                  onPressed: () => context.push('/register'),
+                  child: const Text('New resident? Register here'),
+                ),
+                const SizedBox(height: 8),
                 Text(
-                  'Muhafiz v1.0.0',
+                  'Muhafiz v2.0.0',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.grey,
                       ),
