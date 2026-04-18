@@ -1,0 +1,252 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Auth helpers ─────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isManager() {
+      return getRole() in ['securityManager', 'superAdmin'];
+    }
+
+    function isSupervisor() {
+      return getRole() in ['securityManager', 'securitySupervisor', 'superAdmin'];
+    }
+
+    function isSecurityStaff() {
+      return getRole() in ['securityManager', 'securitySupervisor', 'gateClerk', 'superAdmin'];
+    }
+
+    function isResident() {
+      return getRole() == 'resident';
+    }
+
+    function isOwnFcmTokenUpdate(userId) {
+      return isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['fcm_token', 'updated_at']);
+    }
+
+    // ─── Users ────────────────────────────────────────────────────────────
+
+    match /users/{userId} {
+      allow read:   if isSignedIn() && (request.auth.uid == userId || isSecurityStaff());
+      allow write:  if isManager();
+      allow update: if isOwnFcmTokenUpdate(userId);
+    }
+
+    // ─── Residents (replaces employers) ───────────────────────────────────
+
+    match /residents/{residentId} {
+      // Any signed-in user can read (clerk needs resident lookup by house number)
+      allow read: if isSignedIn();
+      // Resident can create their own document during self-registration
+      allow create: if isSignedIn()
+        && (request.auth.uid == residentId || isSecurityStaff());
+      // Resident can update their own doc; manager can update any
+      allow update: if isSignedIn()
+        && (request.auth.uid == residentId || isManager())
+        || isOwnFcmTokenUpdate(residentId);
+      allow delete: if false;
+    }
+
+    // ─── Legacy employers collection (keep readable, no new writes) ───────
+
+    match /employers/{employerId} {
+      allow read:   if isSignedIn();
+      allow write:  if false;  // frozen — all new data goes to residents
+    }
+
+    // ─── Workers ─────────────────────────────────────────────────────────
+
+    match /workers/{workerId} {
+      allow read:   if isSignedIn();
+      allow create: if isSupervisor()
+        || (isResident() && request.resource.data.keys().hasOnly([
+              'worker_name','cnic','worker_type','nature_of_service',
+              'status','created_at','updated_at']));
+      allow update: if isSupervisor();
+      allow delete: if false;
+    }
+
+    // ─── Worker assignments ───────────────────────────────────────────────
+
+    match /worker_assignments/{assignmentId} {
+      allow read:  if isSignedIn();
+      allow write: if isSupervisor();
+    }
+
+    // ─── Registration requests ────────────────────────────────────────────
+
+    match /registration_requests/{requestId} {
+      allow read:   if isSignedIn();
+      // Resident initiates step-1 worker request; security staff full flow
+      allow create: if isResident() || isSecurityStaff();
+      allow update: if isSupervisor();
+      allow delete: if false;
+    }
+
+    // ─── Gate events ──────────────────────────────────────────────────────
+
+    match /gate_events/{eventId} {
+      allow read:   if isSignedIn();
+      allow create: if isSecurityStaff();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ─── Presence tracker ─────────────────────────────────────────────────
+
+    match /presence_tracker/{workerId} {
+      allow read:  if isSignedIn();
+      allow write: if isSecurityStaff();
+    }
+
+    // ─── Guest visits ─────────────────────────────────────────────────────
+
+    match /guest_visits/{visitId} {
+      allow read:   if isSignedIn();
+      // Clerk creates; clerk or Cloud Function updates (exit/expire)
+      allow create: if isSecurityStaff();
+      allow update: if isSecurityStaff();
+      allow delete: if false;
+    }
+
+    // ─── Vehicle events ───────────────────────────────────────────────────
+
+    match /vehicle_events/{eventId} {
+      allow read:   if isSignedIn();
+      allow create: if isSecurityStaff();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ─── Vehicles ─────────────────────────────────────────────────────────
+
+    match /vehicles/{vehicleId} {
+      allow read: if isSignedIn();
+      // Resident registers their own vehicles
+      allow create: if isSignedIn()
+        && (isResident() || isSecurityStaff());
+      // Resident or manager can update (deactivate, add reg card photo)
+      allow update: if isSignedIn()
+        && (isResident() || isSecurityStaff());
+      allow delete: if false;
+    }
+
+    // ─── Pets ─────────────────────────────────────────────────────────────
+
+    match /pets/{petId} {
+      allow read: if isSignedIn();
+      // Resident submits request
+      allow create: if isSignedIn() && (isResident() || isSecurityStaff());
+      // Manager approves/rejects
+      allow update: if isManager() || isResident();
+      allow delete: if false;
+    }
+
+    // ─── Resident family details ──────────────────────────────────────────
+
+    match /resident_family_details/{residentId} {
+      // Resident manages their own family; security staff can read
+      allow read:   if isSignedIn()
+        && (request.auth.uid == residentId || isSecurityStaff());
+      allow write:  if isSignedIn()
+        && (request.auth.uid == residentId || isSecurityStaff());
+    }
+
+    // ─── Organisations ────────────────────────────────────────────────────
+
+    match /organisations/{orgId} {
+      allow read:  if isSignedIn();
+      allow write: if isManager();
+    }
+
+    // ─── Announcements ────────────────────────────────────────────────────
+
+    match /announcements/{announcementId} {
+      allow read:   if isSignedIn();
+      allow create: if isManager();
+      allow update: if false;
+      allow delete: if isManager();
+    }
+
+    // ─── Notifications ────────────────────────────────────────────────────
+
+    match /notifications/{notifId} {
+      // User can only read their own notifications
+      allow read:   if isSignedIn()
+        && resource.data.recipient_user_id == request.auth.uid;
+      // Security staff create; Cloud Functions also write (handled server-side)
+      allow create: if isSecurityStaff();
+      // User marks their own as read
+      allow update: if isSignedIn()
+        && resource.data.recipient_user_id == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['is_read']);
+      allow delete: if false;
+    }
+
+    // ─── Termination records ──────────────────────────────────────────────
+
+    match /termination_records/{terminationId} {
+      allow read:   if isSecurityStaff() || isResident();
+      allow create: if isResident() || isManager();
+      allow update: if isManager();
+      allow delete: if false;
+    }
+
+    // ─── Termination requests ─────────────────────────────────────────────
+
+    match /termination_requests/{docId} {
+      allow read:   if isManager() || isResident();
+      allow create: if isManager() || isResident();
+      allow update: if isManager();
+      allow delete: if false;
+    }
+
+    // ─── Blacklist ────────────────────────────────────────────────────────
+
+    match /blacklist/{workerId} {
+      allow read:  if isSignedIn();
+      allow write: if isManager();
+    }
+
+    // ─── Site settings ────────────────────────────────────────────────────
+
+    match /site_settings/{siteId} {
+      allow read:  if isSignedIn();
+      allow write: if isManager();
+    }
+
+    // ─── Township configurations (deprecated — read-only) ─────────────────
+
+    match /township_configurations/{docId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
+    // ─── Reports ──────────────────────────────────────────────────────────
+
+    match /reports/{reportId} {
+      allow read:   if isSecurityStaff();
+      allow create: if isSecurityStaff();
+      allow delete: if isManager();
+    }
+
+    // ─── Counters ─────────────────────────────────────────────────────────
+
+    match /_counters/{counterId} {
+      allow read, write: if isSecurityStaff();
+    }
+
+  }
+}

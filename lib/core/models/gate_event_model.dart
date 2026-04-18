@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class GateEventModel {
   final String id;
   final String workerId;
+  final String workerName;
   final String residentId;
   final String eventType;
   final String method;
@@ -18,6 +19,7 @@ class GateEventModel {
   GateEventModel({
     required this.id,
     required this.workerId,
+    this.workerName = '',
     required this.residentId,
     required this.eventType,
     required this.method,
@@ -35,7 +37,8 @@ class GateEventModel {
     final data = doc.data() as Map<String, dynamic>;
     return GateEventModel(
       id: doc.id,
-      workerId: data['worker_id'] ?? data['workerId'] ?? '',
+      workerId:   data['worker_id'] ?? data['workerId'] ?? '',
+      workerName: data['worker_name'] ?? '',
       residentId: data['resident_id'] ?? data['employerId'] ?? '',
       eventType: data['event_type'] ?? data['eventType'] ?? 'entry',
       method: data['method'] ?? 'manualClerk',

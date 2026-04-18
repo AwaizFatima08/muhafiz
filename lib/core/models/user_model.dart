@@ -32,10 +32,21 @@ class UserModel {
       email: data['email'] ?? '',
       phone: data['phone'] ?? '',
       grade: data['grade'],
-      role: UserRole.values.firstWhere(
-        (e) => e.name == data['role'],
-        orElse: () => UserRole.resident,
-      ),
+      role: () {
+        const legacyMap = {
+          'supervisor': 'securitySupervisor',
+          'manager': 'securityManager',
+          'clerk': 'gateClerk',
+          'employer': 'resident',
+          'admin': 'superAdmin',
+        };
+        final s = (data['role'] ?? '').toString();
+        final n = legacyMap[s] ?? s;
+        return UserRole.values.firstWhere(
+          (e) => e.name == n,
+          orElse: () => UserRole.resident,
+        );
+      }(),
       isActive: data['is_active'] ?? false,
       createdAt: (data['created_at'] as Timestamp).toDate(),
       lastLogin: data['last_login'] != null

@@ -6,6 +6,8 @@ class PresenceModel {
   final String lastEventType;
   final DateTime? lastEventTime;
   final String lastProcessedBy;
+  final String workerName;
+  final String cardNumber;
   final DateTime? updatedAt;
 
   PresenceModel({
@@ -14,6 +16,8 @@ class PresenceModel {
     required this.lastEventType,
     this.lastEventTime,
     required this.lastProcessedBy,
+    this.workerName = '',
+    this.cardNumber = '',
     this.updatedAt,
   });
 
@@ -29,6 +33,8 @@ class PresenceModel {
               ? (data['lastEventTime'] as Timestamp).toDate()
               : null,
       lastProcessedBy: data['last_processed_by'] ?? data['lastProcessedBy'] ?? '',
+      workerName:      data['worker_name'] ?? '',
+      cardNumber:      data['card_number'] ?? '',
       updatedAt: data['updated_at'] != null
           ? (data['updated_at'] as Timestamp).toDate()
           : null,

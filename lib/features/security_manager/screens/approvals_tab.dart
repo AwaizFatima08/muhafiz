@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/registration_request_model.dart';
 import '../../../core/models/resident_model.dart';
 import '../../../core/models/pet_model.dart';
+import '../../../core/models/vehicle_model.dart';
 import '../../../core/enums/app_enums.dart';
 import '../../../providers/auth_provider.dart';
 
@@ -13,22 +14,24 @@ class ApprovalsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Column(
         children: [
           const TabBar(
             tabs: [
               Tab(text: 'Workers'),
               Tab(text: 'Residents'),
+              Tab(text: 'Vehicles'),
               Tab(text: 'Pets'),
             ],
           ),
           Expanded(
             child: TabBarView(
               children: [
-                _WorkerApprovalsSection(ref: ref),
-                _ResidentApprovalsSection(ref: ref),
-                _PetApprovalsSection(ref: ref),
+                _WorkerApprovals(ref: ref),
+                _ResidentApprovals(ref: ref),
+                _VehicleApprovals(ref: ref),
+                _PetApprovals(ref: ref),
               ],
             ),
           ),
@@ -39,15 +42,15 @@ class ApprovalsTab extends ConsumerWidget {
 }
 
 // ── Worker registration requests ─────────────────────────────────────────────
-class _WorkerApprovalsSection extends StatelessWidget {
+class _WorkerApprovals extends StatelessWidget {
   final WidgetRef ref;
-  const _WorkerApprovalsSection({required this.ref});
+  const _WorkerApprovals({required this.ref});
 
   @override
   Widget build(BuildContext context) {
     final fs = ref.read(firestoreServiceProvider);
     return StreamBuilder<List<RegistrationRequestModel>>(
-      stream: fs.watchPendingRequests(),
+      stream: fs.watchUnderReviewRequests(),
       builder: (_, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -109,15 +112,15 @@ class _WorkerApprovalsSection extends StatelessWidget {
 }
 
 // ── Resident approvals ───────────────────────────────────────────────────────
-class _ResidentApprovalsSection extends StatelessWidget {
+class _ResidentApprovals extends StatelessWidget {
   final WidgetRef ref;
-  const _ResidentApprovalsSection({required this.ref});
+  const _ResidentApprovals({required this.ref});
 
   @override
   Widget build(BuildContext context) {
     final fs = ref.read(firestoreServiceProvider);
     return StreamBuilder<List<ResidentModel>>(
-      stream: fs.watchPendingResidents(),
+      stream: fs.watchUnderReviewResidents(),
       builder: (_, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -189,15 +192,15 @@ class _ResidentApprovalsSection extends StatelessWidget {
 }
 
 // ── Pet approvals ────────────────────────────────────────────────────────────
-class _PetApprovalsSection extends StatelessWidget {
+class _PetApprovals extends StatelessWidget {
   final WidgetRef ref;
-  const _PetApprovalsSection({required this.ref});
+  const _PetApprovals({required this.ref});
 
   @override
   Widget build(BuildContext context) {
     final fs = ref.read(firestoreServiceProvider);
     return StreamBuilder<List<PetModel>>(
-      stream: fs.watchPendingPetRequests(),
+      stream: fs.watchUnderReviewPetRequests(),
       builder: (_, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -258,6 +261,76 @@ class _PetApprovalsSection extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _VehicleApprovals extends StatelessWidget {
+  final WidgetRef ref;
+  const _VehicleApprovals({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final fs = ref.read(firestoreServiceProvider);
+    return StreamBuilder<List<VehicleModel>>(
+      stream: fs.watchUnderReviewVehicles(),
+      builder: (_, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final vehicles = snap.data ?? [];
+        if (vehicles.isEmpty) {
+          return const Center(child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+              SizedBox(height: 12),
+              Text('No vehicles pending approval'),
+            ],
+          ));
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: vehicles.length,
+          itemBuilder: (_, i) {
+            final v = vehicles[i];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                  child: const Icon(Icons.directions_car_outlined,
+                      color: Colors.blue),
+                ),
+                title: Text(v.vehicleRegistrationNumber,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w500, letterSpacing: 1)),
+                subtitle: Text(
+                  [
+                    v.vehicleType.name,
+                    if (v.make != null) v.make!,
+                    if (v.colour != null) v.colour!,
+                  ].join(' · '),
+                ),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(
+                    icon: const Icon(Icons.check_circle, color: Colors.green),
+                    onPressed: () => fs.updateVehicle(v.id, {
+                      'status': 'approved',
+                    }),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.cancel, color: Colors.red),
+                    onPressed: () => fs.updateVehicle(v.id, {
+                      'status': 'rejected',
+                    }),
+                  ),
+                ]),
               ),
             );
           },

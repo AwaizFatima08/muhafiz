@@ -182,6 +182,7 @@ enum InitiatedByRole {
 
 enum ResidentStatus {
   pending,
+  underReview,
   approved,
   suspended,
 }

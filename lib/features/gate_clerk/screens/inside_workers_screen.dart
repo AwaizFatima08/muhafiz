@@ -56,9 +56,13 @@ class InsideWorkersScreen extends ConsumerWidget {
                       child: const Icon(Icons.person,
                           color: Colors.green, size: 20),
                     ),
-                    title: Text(worker?.workerName ?? presence.workerId,
+                    title: Text(
+                        worker?.workerName ??
+                            (presence.workerName.isNotEmpty
+                                ? presence.workerName
+                                : presence.workerId),
                         style: const TextStyle(fontWeight: FontWeight.w500)),
-                    subtitle: Text(worker?.cardNumber ?? '',
+                    subtitle: Text(worker?.cardNumber ?? presence.cardNumber,
                         style: TextStyle(
                             color: Colors.grey.shade600, fontSize: 12)),
                     trailing: Column(

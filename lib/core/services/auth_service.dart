@@ -29,6 +29,10 @@ class AuthService {
     await _auth.signOut();
   }
 
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
   Future<UserModel?> getUserModel(String uid) async {
     try {
       final doc = await _db.collection('users').doc(uid).get();

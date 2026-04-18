@@ -6,6 +6,7 @@ import '../../../core/models/guest_visit_model.dart';
 import '../../../core/services/guest_slip_pdf_service.dart';
 import '../../../core/utils/validators.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../core/models/site_settings_model.dart';
 
 class GuestEntryScreen extends ConsumerStatefulWidget {
   const GuestEntryScreen({super.key});
@@ -109,13 +110,18 @@ class _GuestEntryScreenState extends ConsumerState<GuestEntryScreen> {
         gateClerkId: visit.gateClerkId,
       );
 
-      // Fetch site settings for slip
-      final settings = await fs.getSiteSettings('township_main');
+      // Fetch site settings for slip — use fallback if doc missing
+      final settings = await fs.getSiteSettings('township_main') ??
+          SiteSettings(
+            siteId:                 'township_main',
+            siteName:               'FFL Township',
+            overstayThresholdHours: 8,
+          );
 
       // Generate PDF
       final pdfBytes = await GuestSlipPdfService.generate(
         visit:     savedVisit,
-        settings:  settings!,
+        settings:  settings,
         clerkName: currentUser.uid,
       );
 

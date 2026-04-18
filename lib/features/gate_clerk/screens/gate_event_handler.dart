@@ -35,7 +35,8 @@ class GateEventHandler {
     // ── Create gate event ──────────────────────────────────────────────────
     final event = GateEventModel(
       id: '',
-      workerId: worker.id,
+      workerId:   worker.id,
+      workerName: worker.workerName,
       residentId: assignment?.residentId ?? '',
       eventType: eventType,
       method: 'qrScan',

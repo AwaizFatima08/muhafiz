@@ -12,6 +12,7 @@ class VehicleModel {
   final String? vehicleRegistrationCardPhotoUrl;
   final String? rfidTagId;       // future — populated when RFID issued
   final bool isActive;
+  final String status; // pending | underReview | approved | rejected
   final String? registeredBy;
   final DateTime registeredAt;
 
@@ -26,6 +27,7 @@ class VehicleModel {
     this.vehicleRegistrationCardPhotoUrl,
     this.rfidTagId,
     required this.isActive,
+    this.status = 'pending',
     this.registeredBy,
     required this.registeredAt,
   });
@@ -46,6 +48,7 @@ class VehicleModel {
       vehicleRegistrationCardPhotoUrl:  d['vehicle_registration_card_photo_url'],
       rfidTagId:                        d['rfid_tag_id'],
       isActive:                         d['is_active'] ?? true,
+      status:                           d['status'] ?? 'pending',
       registeredBy:                     d['registered_by'],
       registeredAt: d['registered_at'] != null
           ? (d['registered_at'] as Timestamp).toDate()
@@ -63,6 +66,7 @@ class VehicleModel {
     'vehicle_registration_card_photo_url': vehicleRegistrationCardPhotoUrl,
     'rfid_tag_id':                        rfidTagId,
     'is_active':                          isActive,
+    'status':                             status,
     'registered_by':                      registeredBy,
     'registered_at':                      Timestamp.fromDate(registeredAt),
   };

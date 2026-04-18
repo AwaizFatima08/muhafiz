@@ -223,6 +223,18 @@ class _ClerkDashboardState extends ConsumerState<ClerkDashboard> {
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
                     onPressed: () =>
+                        context.push('/register-worker'),
+                    icon: const Icon(Icons.person_add_outlined,
+                        size: 18),
+                    label: const Text('Register Worker'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () =>
                         context.push('/clerk/vehicle-log'),
                     icon: const Icon(
                         Icons.directions_car_outlined, size: 18),
@@ -289,7 +301,10 @@ class _ClerkDashboardState extends ConsumerState<ClerkDashboard> {
                               isEntry ? Colors.green : Colors.red,
                         ),
                       ),
-                      title: Text(event.workerId,
+                      title: Text(
+                          event.workerName.isNotEmpty
+                              ? event.workerName
+                              : event.workerId,
                           style: const TextStyle(fontSize: 13)),
                       subtitle: Text(
                         event.processedAt

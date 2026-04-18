@@ -823,4 +823,57 @@ class FirestoreService {
         .snapshots()
         .map((snap) => snap.size);
   }
+
+  // ─── Under-review streams (for manager approvals) ───────────────────────
+
+  Stream<List<RegistrationRequestModel>> watchUnderReviewRequests() {
+    return _requests
+        .where('status', isEqualTo: 'underReview')
+        .orderBy('submitted_at', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => RegistrationRequestModel.fromFirestore(doc))
+            .toList());
+  }
+
+  Stream<List<ResidentModel>> watchUnderReviewResidents() {
+    return _residents
+        .where('status', isEqualTo: 'underReview')
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => ResidentModel.fromFirestore(doc))
+            .toList());
+  }
+
+  Stream<List<PetModel>> watchUnderReviewPetRequests() {
+    return _pets
+        .where('status', isEqualTo: 'underReview')
+        .orderBy('request_initiated_at', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => PetModel.fromFirestore(doc))
+            .toList());
+  }
+
+  // ─── Vehicle streams ─────────────────────────────────────────────────────
+
+  Stream<List<VehicleModel>> watchPendingVehicles() {
+    return _vehicles
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => VehicleModel.fromFirestore(doc))
+            .toList());
+  }
+
+  Stream<List<VehicleModel>> watchUnderReviewVehicles() {
+    return _vehicles
+        .where('status', isEqualTo: 'underReview')
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => VehicleModel.fromFirestore(doc))
+            .toList());
+  }
+
 }
