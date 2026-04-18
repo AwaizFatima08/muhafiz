@@ -38,6 +38,7 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
     final colourCtrl = TextEditingController();
     VehicleType vType = VehicleType.car;
     File? regCardFile;
+    final yearCtrl = TextEditingController();
     bool saving = false;
 
     await showModalBottomSheet(
@@ -100,6 +101,14 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
               TextField(
                 controller: colourCtrl,
                 decoration: const InputDecoration(labelText: 'Colour'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: yearCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                    labelText: 'Year of Manufacture',
+                    hintText: '2020'),
               ),
               const SizedBox(height: 16),
               PhotoUploadWidget(

@@ -64,7 +64,7 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
     notifier.updateStep2(
       residentId: _selectedEmployerId,
       houseNumber: _houseController.text.trim(),
-      arrivalWindow: _arrivalController.text.trim(),
+      arrivalWindow: '${_arrivalFrom ?? ''}-${_arrivalTo ?? ''}',
     );
     notifier.nextStep();
   }
@@ -123,17 +123,38 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
             ),
             const SizedBox(height: 16),
 
-            // Arrival window
-            TextFormField(
-              controller: _arrivalController,
-              decoration: const InputDecoration(
-                labelText: 'Expected Arrival Window *',
-                prefixIcon: Icon(Icons.access_time_outlined),
-                hintText: 'e.g. 08:00 - 10:00',
+            // Arrival window — from/to dropdowns in 30-min slots
+            Row(children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _arrivalFrom,
+                  decoration: const InputDecoration(
+                    labelText: 'From *',
+                    prefixIcon: Icon(Icons.access_time_outlined),
+                  ),
+                  items: _timeSlots.map((t) =>
+                      DropdownMenuItem(value: t, child: Text(t))).toList(),
+                  onChanged: (v) => setState(() => _arrivalFrom = v),
+                  validator: (v) =>
+                      v == null ? 'Select from time' : null,
+                ),
               ),
-              validator: (v) =>
-                  Validators.required(v, fieldName: 'Arrival window'),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _arrivalTo,
+                  decoration: const InputDecoration(
+                    labelText: 'To *',
+                    prefixIcon: Icon(Icons.access_time_outlined),
+                  ),
+                  items: _timeSlots.map((t) =>
+                      DropdownMenuItem(value: t, child: Text(t))).toList(),
+                  onChanged: (v) => setState(() => _arrivalTo = v),
+                  validator: (v) =>
+                      v == null ? 'Select to time' : null,
+                ),
+              ),
+            ]),
             const SizedBox(height: 32),
 
             // Navigation buttons
