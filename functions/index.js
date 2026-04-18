@@ -20,12 +20,13 @@ exports.onGateEvent = onDocumentCreated(
     if (!["entry", "exit"].includes(data.event_type)) return null;
     if (data.is_auto_exit === true) return null;
 
-    const workerId = data.workerId;
-    const employerId = data.employerId;
-    const eventType = data.event_type;
+    // V2: snake_case field names
+    const workerId   = data.worker_id   || data.workerId;
+    const residentId = data.resident_id || data.employerId;
+    const eventType  = data.event_type;
 
-    if (!workerId || !employerId) {
-      console.log("Missing workerId or employerId — skipping notification");
+    if (!workerId || !residentId) {
+      console.log("Missing worker_id or resident_id — skipping notification");
       return null;
     }
 
@@ -37,100 +38,106 @@ exports.onGateEvent = onDocumentCreated(
         return null;
       }
       const worker = workerDoc.data();
-      const workerName =
-        worker.worker_name || worker.name || "Unknown Worker";
-      const cardNumber = worker.card_number || "";
+      const workerName  = worker.worker_name || worker.name || "Unknown Worker";
+      const cardNumber  = worker.card_number || "";
 
-      // ── Fetch employer FCM token ───────────────────────────────────────
-      const employerDoc = await db
-        .collection("employers")
-        .doc(employerId)
-        .get();
-      if (!employerDoc.exists) {
-        console.log(`Employer ${employerId} not found`);
+      // ── Fetch resident FCM token + notification prefs ──────────────────
+      const residentDoc = await db.collection("residents").doc(residentId).get();
+      if (!residentDoc.exists) {
+        console.log(`Resident ${residentId} not found`);
         return null;
       }
-      const employer = employerDoc.data();
-      const fcmToken = employer.fcm_token;
+      const resident  = residentDoc.data();
+      const fcmToken  = resident.fcm_token;
+      const prefs     = resident.notification_pref || {};
+
+      // Respect notification preferences
+      const wantsEntry = prefs.worker_entry !== false;   // default true
+      const wantsExit  = prefs.worker_exit  !== false;   // default true
+
+      if (eventType === "entry" && !wantsEntry) {
+        console.log(`Resident ${residentId} has worker_entry notifications off`);
+        return null;
+      }
+      if (eventType === "exit" && !wantsExit) {
+        console.log(`Resident ${residentId} has worker_exit notifications off`);
+        return null;
+      }
 
       if (!fcmToken) {
-        console.log(
-          `No FCM token for employer ${employerId} — skipping`
-        );
-        return null;
+        console.log(`No FCM token for resident ${residentId} — storing in-app only`);
       }
 
       // ── Build notification ─────────────────────────────────────────────
       const isEntry = eventType === "entry";
       const timeStr = new Date().toLocaleTimeString("en-PK", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
+        hour:     "2-digit",
+        minute:   "2-digit",
+        hour12:   true,
         timeZone: "Asia/Karachi",
       });
 
       const title = isEntry
-        ? `✅ Worker Entered — ${workerName}`
-        : `🚪 Worker Exited — ${workerName}`;
+        ? `Worker Entered — ${workerName}`
+        : `Worker Exited — ${workerName}`;
 
       const body = isEntry
         ? `${workerName} (${cardNumber}) entered FFL Township at ${timeStr}`
         : `${workerName} (${cardNumber}) exited FFL Township at ${timeStr}`;
 
-      // ── Send FCM message ───────────────────────────────────────────────
-      const message = {
-        token: fcmToken,
-        notification: {
-          title,
-          body,
-        },
-        data: {
-          event_type: eventType,
-          worker_id: workerId,
-          worker_name: workerName,
-          card_number: cardNumber,
-          employer_id: employerId,
-          time: timeStr,
-        },
-        android: {
-          notification: {
-            channel_id: "muhafiz_gate_events",
-            priority: "high",
-            default_sound: true,
+      // ── Send FCM push (only if token present) ─────────────────────────
+      if (fcmToken) {
+        const message = {
+          token: fcmToken,
+          notification: { title, body },
+          data: {
+            event_type:  eventType,
+            worker_id:   workerId,
+            worker_name: workerName,
+            card_number: cardNumber,
+            resident_id: residentId,
+            time:        timeStr,
           },
-          priority: "high",
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: "default",
-              badge: 1,
+          android: {
+            notification: {
+              channel_id:    "muhafiz_gate_events",
+              priority:      "high",
+              default_sound: true,
+            },
+            priority: "high",
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: "default",
+                badge: 1,
+              },
             },
           },
-        },
-      };
+        };
 
-      const response = await messaging.send(message);
-      console.log(
-        `Notification sent to employer ${employerId}: ${response}`
-      );
+        const response = await messaging.send(message);
+        console.log(`FCM sent to resident ${residentId}: ${response}`);
+      }
 
       // ── Store notification in Firestore for in-app inbox ───────────────
       await db.collection("notifications").add({
-        recipient_user_id: employerId,
+        recipient_user_id:     residentId,
+        recipient_resident_id: residentId,
         title,
         body,
-        event_type: eventType,
-        worker_id: workerId,
+        type:        isEntry ? "entry" : "exit",
+        worker_id:   workerId,
         worker_name: workerName,
         card_number: cardNumber,
-        is_read: false,
-        created_at: admin.firestore.FieldValue.serverTimestamp(),
+        is_read:     false,
+        channel:     "fcm",
+        created_at:  admin.firestore.FieldValue.serverTimestamp(),
       });
 
       return null;
     } catch (error) {
-      console.error("Error sending notification:", error);
+      console.error("Error in onGateEvent:", error);
       return null;
     }
   }

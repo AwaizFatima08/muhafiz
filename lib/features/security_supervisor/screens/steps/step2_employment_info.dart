@@ -25,7 +25,7 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
     final state = ref.read(registrationFormProvider);
     _houseController.text = state.houseNumber;
     _arrivalController.text = state.arrivalWindow;
-    _selectedEmployerId = state.employerId.isEmpty ? null : state.employerId;
+    _selectedEmployerId = state.residentId.isEmpty ? null : state.residentId;
     _loadEmployers();
   }
 
@@ -35,7 +35,7 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
     if (mounted) {
       setState(() {
         _employers = employers
-            .map((e) => {'id': e['id'] ?? '', 'name': e['name'] ?? '', 'unit': e['unit'] ?? ''})
+            .map((e) => {'id': e.id, 'name': e.name, 'unit': e.unit ?? ''})
             .toList();
         _loadingEmployers = false;
       });
@@ -55,7 +55,7 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
 
     final notifier = ref.read(registrationFormProvider.notifier);
     notifier.updateStep2(
-      employerId: _selectedEmployerId,
+      residentId: _selectedEmployerId,
       houseNumber: _houseController.text.trim(),
       arrivalWindow: _arrivalController.text.trim(),
     );

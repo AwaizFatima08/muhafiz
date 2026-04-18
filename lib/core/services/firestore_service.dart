@@ -9,6 +9,14 @@ import '../models/registration_request_model.dart';
 import '../models/site_settings_model.dart';
 import '../models/termination_request_model.dart';
 import '../models/blacklist_entry_model.dart';
+import '../models/resident_model.dart';
+import '../models/organisation_model.dart';
+import '../models/vehicle_model.dart';
+import '../models/vehicle_event_model.dart';
+import '../models/guest_visit_model.dart';
+import '../models/announcement_model.dart';
+import '../models/pet_model.dart';
+import '../models/family_member_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db;
@@ -30,6 +38,13 @@ class FirestoreService {
   CollectionReference get _terminationRequests =>
       _db.collection('termination_requests');
   CollectionReference get _blacklist => _db.collection('blacklist');
+  CollectionReference get _organisations => _db.collection('organisations');
+  CollectionReference get _vehicles => _db.collection('vehicles');
+  CollectionReference get _vehicleEvents => _db.collection('vehicle_events');
+  CollectionReference get _guestVisits => _db.collection('guest_visits');
+  CollectionReference get _announcements => _db.collection('announcements');
+  CollectionReference get _pets => _db.collection('pets');
+  CollectionReference get _familyDetails => _db.collection('resident_family_details');
 
   // ─── Workers ─────────────────────────────────────────────────────────────
 
@@ -103,22 +118,43 @@ class FirestoreService {
 
   // ─── Employers ───────────────────────────────────────────────────────────
 
-  Future<Map<String, dynamic>?> getResident(String residentId) async {
+  Future<ResidentModel?> getResident(String residentId) async {
     try {
       final doc = await _residents.doc(residentId).get();
       if (!doc.exists) return null;
-      return {...doc.data() as Map<String, dynamic>, 'id': doc.id};
+      return ResidentModel.fromFirestore(doc);
     } catch (e) {
       return null;
     }
   }
 
-  Stream<List<Map<String, dynamic>>> watchActiveResidents() {
+  Future<void> createResident(ResidentModel resident) async {
+    await _residents.doc(resident.id).set(resident.toFirestore());
+  }
+
+  Future<void> updateResident(String residentId, Map<String, dynamic> data) async {
+    await _residents.doc(residentId).update({
+      ...data,
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Stream<List<ResidentModel>> watchActiveResidents() {
     return _residents
         .where('is_active', isEqualTo: true)
         .snapshots()
         .map((snap) => snap.docs
-            .map((doc) => {...doc.data() as Map<String, dynamic>, 'id': doc.id})
+            .map((doc) => ResidentModel.fromFirestore(doc))
+            .toList());
+  }
+
+  Stream<List<ResidentModel>> watchPendingResidents() {
+    return _residents
+        .where('status', isEqualTo: 'pending')
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => ResidentModel.fromFirestore(doc))
             .toList());
   }
 
@@ -219,7 +255,7 @@ class FirestoreService {
       {int limit = 20}) async {
     try {
       final snap = await _gateEvents
-          .where('workerId', isEqualTo: workerId)
+          .where('worker_id', isEqualTo: workerId)
           .orderBy('processed_at', descending: true)
           .limit(limit)
           .get();
@@ -280,8 +316,8 @@ class FirestoreService {
 
   Stream<List<TerminationModel>> watchPendingTerminations() {
     return _terminations
-        .where('manager_decision', isEqualTo: 'pending')
-        .orderBy('created_at', descending: true)
+        .where('outcome', isNull: true)
+        .orderBy('terminated_at', descending: true)
         .snapshots()
         .map((snap) => snap.docs
             .map((doc) => TerminationModel.fromFirestore(doc))
@@ -553,5 +589,216 @@ class FirestoreService {
     });
 
     await batch.commit();
+  }
+
+  // ─── Organisations ────────────────────────────────────────────────────
+
+  Future<List<OrganisationModel>> getOrganisations() async {
+    try {
+      final snap = await _organisations
+          .where('is_active', isEqualTo: true)
+          .orderBy('name')
+          .get();
+      return snap.docs
+          .map((d) => OrganisationModel.fromFirestore(d))
+          .toList();
+    } catch (e) { return []; }
+  }
+
+  Future<String> createOrganisation(OrganisationModel org) async {
+    final ref = await _organisations.add(org.toFirestore());
+    return ref.id;
+  }
+
+  Future<void> updateOrganisation(String orgId, Map<String, dynamic> data) async {
+    await _organisations.doc(orgId).update(data);
+  }
+
+  // ─── Vehicles ─────────────────────────────────────────────────────────
+
+  Future<List<VehicleModel>> getVehiclesForResident(String residentId) async {
+    try {
+      final snap = await _vehicles
+          .where('resident_id', isEqualTo: residentId)
+          .where('is_active', isEqualTo: true)
+          .get();
+      return snap.docs.map((d) => VehicleModel.fromFirestore(d)).toList();
+    } catch (e) { return []; }
+  }
+
+  Future<VehicleModel?> getVehicleByPlate(String plate) async {
+    try {
+      final snap = await _vehicles
+          .where('vehicle_registration_number', isEqualTo: plate)
+          .where('is_active', isEqualTo: true)
+          .limit(1)
+          .get();
+      if (snap.docs.isEmpty) return null;
+      return VehicleModel.fromFirestore(snap.docs.first);
+    } catch (e) { return null; }
+  }
+
+  Future<String> createVehicle(VehicleModel vehicle) async {
+    final ref = await _vehicles.add(vehicle.toFirestore());
+    return ref.id;
+  }
+
+  Future<void> updateVehicle(String vehicleId, Map<String, dynamic> data) async {
+    await _vehicles.doc(vehicleId).update(data);
+  }
+
+  // ─── Vehicle Events ───────────────────────────────────────────────────
+
+  Future<String> createVehicleEvent(VehicleEventModel event) async {
+    final ref = await _vehicleEvents.add(event.toFirestore());
+    return ref.id;
+  }
+
+  Stream<List<VehicleEventModel>> watchTodayVehicleEvents() {
+    final startOfDay = DateTime.now()
+        .copyWith(hour: 0, minute: 0, second: 0, millisecond: 0);
+    return _vehicleEvents
+        .where('processed_at',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .orderBy('processed_at', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => VehicleEventModel.fromFirestore(d))
+            .toList());
+  }
+
+  // ─── Guest Visits ─────────────────────────────────────────────────────
+
+  Future<String> createGuestVisit(GuestVisitModel visit) async {
+    final ref = await _guestVisits.add(visit.toFirestore());
+    return ref.id;
+  }
+
+  Future<void> updateGuestVisit(String visitId, Map<String, dynamic> data) async {
+    await _guestVisits.doc(visitId).update(data);
+  }
+
+  Future<GuestVisitModel?> getGuestVisitByQr(String qrValue) async {
+    try {
+      final snap = await _guestVisits
+          .where('slip_qr_value', isEqualTo: qrValue)
+          .where('status', isEqualTo: 'inside')
+          .limit(1)
+          .get();
+      if (snap.docs.isEmpty) return null;
+      return GuestVisitModel.fromFirestore(snap.docs.first);
+    } catch (e) { return null; }
+  }
+
+  Stream<List<GuestVisitModel>> watchGuestsInsideToday() {
+    final startOfDay = DateTime.now()
+        .copyWith(hour: 0, minute: 0, second: 0, millisecond: 0);
+    return _guestVisits
+        .where('entry_time',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .orderBy('entry_time', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => GuestVisitModel.fromFirestore(d))
+            .toList());
+  }
+
+  Future<List<GuestVisitModel>> getVisitorHistoryForResident(
+      String residentId, {int limit = 50}) async {
+    try {
+      final snap = await _guestVisits
+          .where('visiting_resident_id', isEqualTo: residentId)
+          .orderBy('entry_time', descending: true)
+          .limit(limit)
+          .get();
+      return snap.docs.map((d) => GuestVisitModel.fromFirestore(d)).toList();
+    } catch (e) { return []; }
+  }
+
+  // ─── Announcements ────────────────────────────────────────────────────
+
+  Future<String> createAnnouncement(AnnouncementModel announcement) async {
+    final ref = await _announcements.add(announcement.toFirestore());
+    return ref.id;
+  }
+
+  Stream<List<AnnouncementModel>> watchRecentAnnouncements({int limit = 20}) {
+    return _announcements
+        .orderBy('sent_at', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => AnnouncementModel.fromFirestore(d))
+            .toList());
+  }
+
+  // ─── Pets ─────────────────────────────────────────────────────────────
+
+  Future<String> createPetRequest(PetModel pet) async {
+    final ref = await _pets.add(pet.toFirestore());
+    return ref.id;
+  }
+
+  Future<void> updatePet(String petId, Map<String, dynamic> data) async {
+    await _pets.doc(petId).update(data);
+  }
+
+  Stream<List<PetModel>> watchPendingPetRequests() {
+    return _pets
+        .where('status', isEqualTo: 'pending')
+        .orderBy('request_initiated_at', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => PetModel.fromFirestore(d))
+            .toList());
+  }
+
+  Future<List<PetModel>> getPetsForResident(String residentId) async {
+    try {
+      final snap = await _pets
+          .where('resident_id', isEqualTo: residentId)
+          .orderBy('request_initiated_at', descending: true)
+          .get();
+      return snap.docs.map((d) => PetModel.fromFirestore(d)).toList();
+    } catch (e) { return []; }
+  }
+
+  // ─── Family Details ───────────────────────────────────────────────────
+
+  Future<List<FamilyMemberModel>> getFamilyMembers(String residentId) async {
+    try {
+      final doc = await _familyDetails.doc(residentId).get();
+      if (!doc.exists) return [];
+      final data = doc.data() as Map<String, dynamic>;
+      return data.entries
+          .where((e) => e.value is Map)
+          .map((e) => FamilyMemberModel.fromMap(
+                e.key, Map<String, dynamic>.from(e.value as Map)))
+          .toList();
+    } catch (e) { return []; }
+  }
+
+  Future<void> saveFamilyMember(
+      String residentId, FamilyMemberModel member) async {
+    await _familyDetails.doc(residentId).set(
+      {member.memberId: member.toMap()},
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> deleteFamilyMember(
+      String residentId, String memberId) async {
+    await _familyDetails.doc(residentId).update({
+      memberId: FieldValue.delete(),
+    });
+  }
+
+  // ─── Guest Visits Count ───────────────────────────────────────────────
+
+  Stream<int> guestsInsideCount() {
+    return _guestVisits
+        .where('status', isEqualTo: 'inside')
+        .snapshots()
+        .map((snap) => snap.size);
   }
 }
