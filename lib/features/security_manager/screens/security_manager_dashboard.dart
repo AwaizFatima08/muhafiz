@@ -5,6 +5,7 @@ import 'overview_tab.dart';
 import 'approvals_tab.dart';
 import 'terminations_tab.dart';
 import 'blacklist_tab.dart';
+import 'announcements_tab.dart';
 
 class SecurityManagerDashboard extends StatefulWidget {
   const SecurityManagerDashboard({super.key});
@@ -29,6 +30,7 @@ class _SecurityManagerDashboardState extends State<SecurityManagerDashboard> {
       const ApprovalsTab(siteId: siteId),
       const TerminationsTab(siteId: siteId),
       const BlacklistTab(siteId: siteId),
+      const AnnouncementsTab(),
     ];
   }
 
@@ -67,6 +69,9 @@ class _SecurityManagerDashboardState extends State<SecurityManagerDashboard> {
               icon: Icon(Icons.gavel), label: 'Terminations'),
           BottomNavigationBarItem(
               icon: Icon(Icons.block), label: 'Blacklist'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.campaign_outlined),
+              label: 'Broadcast'),
         ],
       ),
     );

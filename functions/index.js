@@ -142,3 +142,72 @@ exports.onGateEvent = onDocumentCreated(
     }
   }
 );
+
+
+// ─── Trigger: daily card expiry check (runs at 8am PKT = 3am UTC) ────────────
+
+exports.dailyCardExpiryCheck = require('firebase-functions/v2/scheduler')
+  .onSchedule('0 3 * * *', async () => {
+    const now   = new Date();
+    const in30  = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    const snap = await db.collection('workers')
+      .where('status', 'in', ['active', 'pendingApproval'])
+      .where('card_expiry_date', '<=', in30)
+      .where('card_expiry_notified', '==', '')
+      .get();
+
+    if (snap.empty) return null;
+
+    const batch = db.batch();
+
+    for (const doc of snap.docs) {
+      const w       = doc.data();
+      const expiry  = w.card_expiry_date?.toDate();
+      if (!expiry) continue;
+
+      const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
+
+      // Write in-app notification for security managers
+      const managersSnap = await db.collection('users')
+        .where('role', '==', 'securityManager')
+        .where('is_active', '==', true)
+        .get();
+
+      for (const mgr of managersSnap.docs) {
+        await db.collection('notifications').add({
+          recipient_user_id:     mgr.id,
+          recipient_resident_id: '',
+          title:  `Card Expiry Alert — ${w.worker_name}`,
+          body:   `Card ${w.card_number} expires in ${daysLeft} day(s) on ` +
+                  `${expiry.toLocaleDateString('en-PK')}.`,
+          type:      'cardExpiry',
+          worker_id: doc.id,
+          is_read:   false,
+          channel:   'inApp',
+          created_at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Send FCM if token present
+        const token = mgr.data().fcm_token;
+        if (token) {
+          await messaging.send({
+            token,
+            notification: {
+              title: `Card Expiry — ${w.worker_name}`,
+              body:  `Card expires in ${daysLeft} day(s)`,
+            },
+          }).catch(() => {});
+        }
+      }
+
+      // Mark as notified
+      batch.update(db.collection('workers').doc(doc.id), {
+        card_expiry_notified: now.toISOString(),
+      });
+    }
+
+    await batch.commit();
+    console.log(`Card expiry check: notified for ${snap.size} worker(s)`);
+    return null;
+  });

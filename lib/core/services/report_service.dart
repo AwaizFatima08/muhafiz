@@ -367,4 +367,260 @@ class ReportService {
         'Muhafiz_WorkerRegistry_${DateFormat('yyyy-MM-dd').format(now)}.xlsx';
     return await _saveFile(excel, fileName);
   }
+
+
+  // ─── Guest Visit Log ─────────────────────────────────────────────────────
+
+  Future<String> generateGuestVisitLog(DateTime date) async {
+    final now   = date;
+    final start = _startOfDay(now);
+    final end   = start.add(const Duration(days: 1));
+
+    final snap = await _db
+        .collection('guest_visits')
+        .where('entry_time', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('entry_time', isLessThan: Timestamp.fromDate(end))
+        .orderBy('entry_time', descending: false)
+        .get();
+
+    final excel = Excel.createExcel();
+    final sheet = excel['Guest Visits'];
+    final fmt   = DateFormat('HH:mm');
+
+    final headers = ['#', 'Visitor Name', 'CNIC', 'House',
+        'Resident', 'Purpose', 'Vehicle', 'Entry', 'Exit', 'Status'];
+    for (var i = 0; i < headers.length; i++) {
+      _setCell(sheet, 0, i, headers[i], style: _subHeaderStyle());
+    }
+
+    for (var i = 0; i < snap.docs.length; i++) {
+      final d     = snap.docs[i].data();
+      final style = i.isOdd ? _altRowStyle() : null;
+      final entryTs  = d['entry_time']  as Timestamp?;
+      final exitTs   = d['exit_time']   as Timestamp?;
+      _setCell(sheet, i + 1, 0, i + 1, style: style);
+      _setCell(sheet, i + 1, 1, d['visitor_name'] ?? '', style: style);
+      _setCell(sheet, i + 1, 2, d['visitor_cnic']?.toString() ?? '', style: style);
+      _setCell(sheet, i + 1, 3, d['house_number'] ?? '', style: style);
+      _setCell(sheet, i + 1, 4, d['resident_name'] ?? '', style: style);
+      _setCell(sheet, i + 1, 5, d['purpose'] ?? '', style: style);
+      _setCell(sheet, i + 1, 6, d['vehicle_registration_number'] ?? '', style: style);
+      _setCell(sheet, i + 1, 7,
+          entryTs != null ? fmt.format(entryTs.toDate()) : '', style: style);
+      _setCell(sheet, i + 1, 8,
+          exitTs != null ? fmt.format(exitTs.toDate()) : '—', style: style);
+      _setCell(sheet, i + 1, 9, d['status'] ?? '', style: style);
+    }
+
+    final fileName =
+        'Muhafiz_GuestVisits_${DateFormat('yyyy-MM-dd').format(now)}.xlsx';
+    return await _saveFile(excel, fileName);
+  }
+
+  // ─── Vehicle Log ─────────────────────────────────────────────────────────
+
+  Future<String> generateVehicleLog(DateTime date) async {
+    final now   = date;
+    final start = _startOfDay(now);
+    final end   = start.add(const Duration(days: 1));
+
+    final snap = await _db
+        .collection('vehicle_events')
+        .where('processed_at', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('processed_at', isLessThan: Timestamp.fromDate(end))
+        .orderBy('processed_at', descending: false)
+        .get();
+
+    final excel = Excel.createExcel();
+    final sheet = excel['Vehicle Events'];
+    final fmt   = DateFormat('HH:mm');
+
+    final headers = ['#', 'Plate Number', 'Event', 'Method',
+        'Resident', 'Time'];
+    for (var i = 0; i < headers.length; i++) {
+      _setCell(sheet, 0, i, headers[i], style: _subHeaderStyle());
+    }
+
+    for (var i = 0; i < snap.docs.length; i++) {
+      final d     = snap.docs[i].data();
+      final style = i.isOdd ? _altRowStyle() : null;
+      final ts    = d['processed_at'] as Timestamp?;
+      _setCell(sheet, i + 1, 0, i + 1, style: style);
+      _setCell(sheet, i + 1, 1, d['vehicle_registration_number'] ?? '', style: style);
+      _setCell(sheet, i + 1, 2, d['event_type'] ?? '', style: style);
+      _setCell(sheet, i + 1, 3, d['method'] ?? '', style: style);
+      _setCell(sheet, i + 1, 4, d['resident_id'] ?? '', style: style);
+      _setCell(sheet, i + 1, 5,
+          ts != null ? fmt.format(ts.toDate()) : '', style: style);
+    }
+
+    final fileName =
+        'Muhafiz_VehicleLog_${DateFormat('yyyy-MM-dd').format(now)}.xlsx';
+    return await _saveFile(excel, fileName);
+  }
+
+  // ─── Resident Registry ───────────────────────────────────────────────────
+
+  Future<String> generateResidentRegistry() async {
+    final snap = await _db
+        .collection('residents')
+        .where('is_active', isEqualTo: true)
+        .orderBy('house_number')
+        .get();
+
+    final excel = Excel.createExcel();
+    final sheet = excel['Residents'];
+
+    final headers = ['#', 'Name', 'House', 'Block',
+        'Phone', 'Employee No', 'Org', 'Status'];
+    for (var i = 0; i < headers.length; i++) {
+      _setCell(sheet, 0, i, headers[i], style: _subHeaderStyle());
+    }
+
+    for (var i = 0; i < snap.docs.length; i++) {
+      final d     = snap.docs[i].data();
+      final style = i.isOdd ? _altRowStyle() : null;
+      _setCell(sheet, i + 1, 0, i + 1, style: style);
+      _setCell(sheet, i + 1, 1, d['name'] ?? '', style: style);
+      _setCell(sheet, i + 1, 2, d['house_number'] ?? '', style: style);
+      _setCell(sheet, i + 1, 3, d['block'] ?? '', style: style);
+      _setCell(sheet, i + 1, 4, d['phone_mobile'] ?? '', style: style);
+      _setCell(sheet, i + 1, 5, d['resident_number'] ?? '', style: style);
+      _setCell(sheet, i + 1, 6, d['organisation_id'] ?? '', style: style);
+      _setCell(sheet, i + 1, 7, d['status'] ?? '', style: style);
+    }
+
+    final now      = DateTime.now();
+    final fileName =
+        'Muhafiz_ResidentRegistry_${DateFormat('yyyy-MM-dd').format(now)}.xlsx';
+    return await _saveFile(excel, fileName);
+  }
+
+  // ─── Card Expiry Alerts ──────────────────────────────────────────────────
+
+  Future<String> generateCardExpiryAlerts() async {
+    final cutoff = DateTime.now().add(const Duration(days: 30));
+
+    final snap = await _db
+        .collection('workers')
+        .where('status', whereIn: ['active', 'pendingApproval'])
+        .get();
+
+    final expiring = snap.docs.where((doc) {
+      final d      = doc.data();
+      final expiry = d['card_expiry_date'];
+      if (expiry == null) return false;
+      final dt = expiry is Timestamp
+          ? expiry.toDate()
+          : DateTime.tryParse(expiry.toString());
+      return dt != null && dt.isBefore(cutoff);
+    }).toList();
+
+    final excel = Excel.createExcel();
+    final sheet = excel['Card Expiry'];
+    final fmt   = DateFormat('dd/MM/yyyy');
+
+    final headers = ['#', 'Worker Name', 'Card Number',
+        'CNIC', 'Expiry Date', 'Days Left'];
+    for (var i = 0; i < headers.length; i++) {
+      _setCell(sheet, 0, i, headers[i], style: _subHeaderStyle());
+    }
+
+    for (var i = 0; i < expiring.length; i++) {
+      final d      = expiring[i].data();
+      final style  = i.isOdd ? _altRowStyle() : null;
+      final expiry = d['card_expiry_date'];
+      final dt     = expiry is Timestamp
+          ? expiry.toDate()
+          : DateTime.tryParse(expiry.toString());
+      final daysLeft = dt != null
+          ? dt.difference(DateTime.now()).inDays : 0;
+      _setCell(sheet, i + 1, 0, i + 1, style: style);
+      _setCell(sheet, i + 1, 1, d['worker_name'] ?? '', style: style);
+      _setCell(sheet, i + 1, 2, d['card_number'] ?? '', style: style);
+      _setCell(sheet, i + 1, 3, d['cnic'] ?? '', style: style);
+      _setCell(sheet, i + 1, 4,
+          dt != null ? fmt.format(dt) : '—', style: style);
+      _setCell(sheet, i + 1, 5, daysLeft, style: style);
+    }
+
+    final now      = DateTime.now();
+    final fileName =
+        'Muhafiz_CardExpiry_${DateFormat('yyyy-MM-dd').format(now)}.xlsx';
+    return await _saveFile(excel, fileName);
+  }
+
+  // ─── Emergency Muster ────────────────────────────────────────────────────
+
+  Future<String> generateEmergencyMuster() async {
+    final now = DateTime.now();
+    final fmt = DateFormat('HH:mm');
+
+    // Workers inside
+    final presenceSnap = await _db
+        .collection('presence_tracker')
+        .where('current_status', isEqualTo: 'inside')
+        .get();
+
+    // Guests inside
+    final guestSnap = await _db
+        .collection('guest_visits')
+        .where('status', isEqualTo: 'inside')
+        .get();
+
+    final excel = Excel.createExcel();
+
+    // Workers sheet
+    final ws = excel['Workers Inside'];
+    final wHeaders = ['#', 'Worker Name', 'Card Number', 'Entry Time'];
+    for (var i = 0; i < wHeaders.length; i++) {
+      _setCell(ws, 0, i, wHeaders[i], style: _subHeaderStyle());
+    }
+    for (var i = 0; i < presenceSnap.docs.length; i++) {
+      final d     = presenceSnap.docs[i].data();
+      final style = i.isOdd ? _altRowStyle() : null;
+      final ts    = d['last_event_time'] as Timestamp?;
+      _setCell(ws, i + 1, 0, i + 1, style: style);
+      _setCell(ws, i + 1, 1, d['worker_name'] ?? '', style: style);
+      _setCell(ws, i + 1, 2, d['card_number'] ?? '', style: style);
+      _setCell(ws, i + 1, 3,
+          ts != null ? fmt.format(ts.toDate()) : '', style: style);
+    }
+
+    // Guests sheet
+    final gs = excel['Guests Inside'];
+    final gHeaders = ['#', 'Visitor', 'CNIC', 'House',
+        'Purpose', 'Entry', 'Expires'];
+    for (var i = 0; i < gHeaders.length; i++) {
+      _setCell(gs, 0, i, gHeaders[i], style: _subHeaderStyle());
+    }
+    for (var i = 0; i < guestSnap.docs.length; i++) {
+      final d     = guestSnap.docs[i].data();
+      final style = i.isOdd ? _altRowStyle() : null;
+      final entryTs  = d['entry_time']  as Timestamp?;
+      final expiryTs = d['espires_at']  as Timestamp? ??
+                       d['expires_at']  as Timestamp?;
+      _setCell(gs, i + 1, 0, i + 1, style: style);
+      _setCell(gs, i + 1, 1, d['visitor_name'] ?? '', style: style);
+      _setCell(gs, i + 1, 2, d['visitor_cnic']?.toString() ?? '', style: style);
+      _setCell(gs, i + 1, 3, d['house_number'] ?? '', style: style);
+      _setCell(gs, i + 1, 4, d['purpose'] ?? '', style: style);
+      _setCell(gs, i + 1, 5,
+          entryTs != null ? fmt.format(entryTs.toDate()) : '', style: style);
+      _setCell(gs, i + 1, 6,
+          expiryTs != null ? fmt.format(expiryTs.toDate()) : '', style: style);
+    }
+
+    // Summary sheet
+    final ss = excel['Summary'];
+    _setCell(ss, 0, 0, 'EMERGENCY MUSTER');
+    _setCell(ss, 1, 0,
+        'Generated: ${DateFormat('dd/MM/yyyy HH:mm').format(now)}');
+    _setCell(ss, 2, 0, 'Workers Inside: ${presenceSnap.docs.length}');
+    _setCell(ss, 3, 0, 'Guests Inside: ${guestSnap.docs.length}');
+
+    final fileName =
+        'Muhafiz_Muster_${DateFormat('yyyyMMdd_HHmm').format(now)}.xlsx';
+    return await _saveFile(excel, fileName);
+  }
 }
