@@ -128,6 +128,16 @@ class FirestoreService {
     }
   }
 
+  Future<bool> residentCnicExists(String cnic) async {
+    try {
+      final snap = await _residents
+          .where('cnic', isEqualTo: cnic)
+          .limit(1)
+          .get();
+      return snap.docs.isNotEmpty;
+    } catch (e) { return false; }
+  }
+
   Future<void> createResident(ResidentModel resident) async {
     await _residents.doc(resident.id).set(resident.toFirestore());
   }

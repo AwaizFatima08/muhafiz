@@ -5,6 +5,8 @@ import '../../../../core/enums/app_enums.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../providers/registration_form_provider.dart';
 import '../../../../providers/auth_provider.dart';
+import '../../../../core/widgets/photo_upload_widget.dart';
+import 'dart:io';
 
 class Step1PersonalInfo extends ConsumerStatefulWidget {
   const Step1PersonalInfo({super.key});
@@ -18,6 +20,9 @@ class _Step1PersonalInfoState extends ConsumerState<Step1PersonalInfo> {
   final _nameController = TextEditingController();
   final _cnicController = TextEditingController();
   bool _checkingCnic = false;
+  File? _workerPhotoFile;
+  File? _cnicFrontFile;
+  File? _cnicBackFile;
 
   @override
   void initState() {
@@ -32,6 +37,45 @@ class _Step1PersonalInfoState extends ConsumerState<Step1PersonalInfo> {
     _nameController.dispose();
     _cnicController.dispose();
     super.dispose();
+  }
+
+  Widget _buildPhotoSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Photos',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
+        Text('All photos optional — can be added later by supervisor',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+        const SizedBox(height: 12),
+        PhotoUploadWidget(
+          label: 'Worker photo',
+          localFile: _workerPhotoFile,
+          onFilePicked: (f) => setState(() => _workerPhotoFile = f),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: PhotoUploadWidget(
+                label: 'CNIC front',
+                localFile: _cnicFrontFile,
+                onFilePicked: (f) => setState(() => _cnicFrontFile = f),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: PhotoUploadWidget(
+                label: 'CNIC back',
+                localFile: _cnicBackFile,
+                onFilePicked: (f) => setState(() => _cnicBackFile = f),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   Future<void> _checkCnicAndProceed() async {
@@ -58,6 +102,9 @@ class _Step1PersonalInfoState extends ConsumerState<Step1PersonalInfo> {
     notifier.updateStep1(
       name: _nameController.text.trim(),
       cnic: _cnicController.text.trim(),
+      photoUrl: _workerPhotoFile?.path ?? '',
+      cnicPhotoUrlFront: _cnicFrontFile?.path ?? '',
+      cnicPhotoUrlBack: _cnicBackFile?.path ?? '',
     );
     notifier.nextStep();
   }
@@ -74,11 +121,14 @@ class _Step1PersonalInfoState extends ConsumerState<Step1PersonalInfo> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Photo capture
-            Center(
+            // ── Photo uploads ──────────────────────────────────────
+            _buildPhotoSection(),
+            const SizedBox(height: 20),
+            // REMOVED old camera stub — replaced with PhotoUploadWidget
+            // ignore: dead_code
+            if (false) Center(
               child: GestureDetector(
                 onTap: () {
-                  // TODO: camera integration in next step
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Camera coming soon')),
                   );

@@ -8,6 +8,8 @@ import '../../../../core/models/worker_assignment_model.dart';
 import '../../../../core/utils/card_number_generator.dart';
 import '../../../../providers/registration_form_provider.dart';
 import '../../../../providers/auth_provider.dart';
+import '../../../../core/widgets/photo_upload_widget.dart';
+import 'dart:io';
 
 class Step3PoliceVerification extends ConsumerStatefulWidget {
   const Step3PoliceVerification({super.key});
@@ -21,6 +23,9 @@ class _Step3PoliceVerificationState
     extends ConsumerState<Step3PoliceVerification> {
   final _formKey = GlobalKey<FormState>();
   final _refController = TextEditingController();
+  File? _policeVerifPhotoFile;
+  // ignore: prefer_final_fields
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -72,6 +77,13 @@ class _Step3PoliceVerificationState
             ? null
             : _refController.text.trim(),
         policeVerifExpiry: formState.policeVerifExpiry,
+        cnicPhotoUrlFront: formState.cnicPhotoUrlFront.isEmpty
+            ? null : formState.cnicPhotoUrlFront,
+        cnicPhotoUrlBack: formState.cnicPhotoUrlBack.isEmpty
+            ? null : formState.cnicPhotoUrlBack,
+        cardExpiryDate: DateTime.now().add(const Duration(days: 365)),
+        registeredByUid: ref.read(authStateProvider).valueOrNull?.uid,
+        registeredByRole: 'gateClerk',
         status: WorkerStatus.pendingApproval,
         qrCodeValue: qrValue,
         qrInvalidated: false,
@@ -80,6 +92,17 @@ class _Step3PoliceVerificationState
       );
 
       final workerId = await firestoreService.createWorker(worker);
+
+      // Upload police verif photo if provided
+      if (_policeVerifPhotoFile != null) {
+        final storageService = ref.read(storageServiceProvider);
+        final photoUrl = await storageService
+            .uploadPoliceVerifDoc(workerId, _policeVerifPhotoFile!);
+        if (photoUrl != null) {
+          await firestoreService.updateWorker(workerId,
+              {'police_verification_photo_url': photoUrl});
+        }
+      }
 
       // Create assignment
       final currentUser = ref.read(authStateProvider).valueOrNull;
@@ -241,6 +264,19 @@ class _Step3PoliceVerificationState
               ),
               const SizedBox(height: 16),
             ],
+
+            // Police verif photo upload
+            PhotoUploadWidget(
+              label: 'Police verification document',
+              localFile: _policeVerifPhotoFile,
+              isUploading: _uploadingPhoto,
+              onFilePicked: (file) {
+                setState(() => _policeVerifPhotoFile = file);
+                notifier.updateStep3(
+                    policeVerifPhotoUrl: file.path);
+              },
+            ),
+            const SizedBox(height: 16),
 
             // Summary card
             Container(

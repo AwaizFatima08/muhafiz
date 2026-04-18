@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../core/services/auth_service.dart';
 import '../core/services/firestore_service.dart';
 import '../core/services/notification_service.dart';
+import '../core/services/storage_service.dart';
 import '../core/models/user_model.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) {
@@ -15,6 +16,10 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService();
+});
+
+final storageServiceProvider = Provider<StorageService>((ref) {
+  return StorageService();
 });
 
 final authStateProvider = StreamProvider<User?>((ref) {

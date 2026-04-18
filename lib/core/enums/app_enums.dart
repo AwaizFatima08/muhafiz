@@ -54,6 +54,7 @@ enum RegistrationRequestType {
 
 enum RegistrationRequestStatus {
   pending,
+  underReview,
   approved,
   rejected,
   needsMoreInfo,
