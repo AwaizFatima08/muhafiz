@@ -157,6 +157,15 @@ class FirestoreService {
     } catch (e) { return null; }
   }
 
+  Future<bool> residentPhoneExists(String phone) async {
+    try {
+      final snap = await _residents
+          .where('phone_mobile', isEqualTo: phone)
+          .limit(1).get();
+      return snap.docs.isNotEmpty;
+    } catch (e) { return false; }
+  }
+
   Future<bool> residentCnicExists(String cnic) async {
     try {
       final snap = await _residents

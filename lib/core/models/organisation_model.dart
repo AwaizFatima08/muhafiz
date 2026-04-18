@@ -7,6 +7,8 @@ class OrganisationModel {
   final String? contactPerson;
   final String? contactNumber;
   final bool isActive;
+  final List<String> grades;
+  final List<String> departments;
   final String? createdBy;
   final DateTime createdAt;
 
@@ -17,6 +19,8 @@ class OrganisationModel {
     this.contactPerson,
     this.contactNumber,
     required this.isActive,
+    this.grades = const [],
+    this.departments = const [],
     this.createdBy,
     required this.createdAt,
   });
@@ -30,6 +34,8 @@ class OrganisationModel {
       contactPerson: d['contact_person'],
       contactNumber: d['contact_number'],
       isActive:      d['is_active'] ?? true,
+      grades:        List<String>.from(d['grades'] ?? []),
+      departments:   List<String>.from(d['departments'] ?? []),
       createdBy:     d['created_by'],
       createdAt: d['created_at'] != null
           ? (d['created_at'] as Timestamp).toDate()
@@ -43,6 +49,8 @@ class OrganisationModel {
     'contact_person': contactPerson,
     'contact_number': contactNumber,
     'is_active':      isActive,
+    'grades':         grades,
+    'departments':    departments,
     'created_by':     createdBy,
     'created_at':     Timestamp.fromDate(createdAt),
   };

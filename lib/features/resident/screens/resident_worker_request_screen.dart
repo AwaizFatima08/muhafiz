@@ -45,9 +45,9 @@ class _ResidentWorkerRequestScreenState
       final currentUser = ref.read(authStateProvider).valueOrNull;
       if (currentUser == null) throw Exception('Not logged in');
 
-      // Check CNIC not already registered
-      final existing =
-          await fs.getWorkerByCnic(_cnicController.text.trim());
+      // Check CNIC not already registered (strip dashes)
+      final cleanCnic = _cnicController.text.trim().replaceAll('-', '');
+      final existing  = await fs.getWorkerByCnic(cleanCnic);
       if (existing != null) {
         setState(() {
           _error = 'This CNIC is already registered.';

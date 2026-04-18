@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../config/themes.dart';
 import '../../../core/enums/app_enums.dart';
 import '../../../core/models/resident_model.dart';
+import '../../../core/models/organisation_model.dart';
 import '../../../core/utils/validators.dart';
 import '../../../providers/auth_provider.dart';
 
@@ -21,36 +22,44 @@ class _ResidentRegistrationScreenState
   int _currentStep = 0;
 
   // Step 1 — account
-  final _emailController    = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmController  = TextEditingController();
-  final _nameController     = TextEditingController();
-  final _phoneController    = TextEditingController();
+  final _emailCtrl    = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmCtrl  = TextEditingController();
+  final _nameCtrl     = TextEditingController();
+  final _phoneCtrl    = TextEditingController();
+  final _cnicCtrl     = TextEditingController();
+  DateTime? _dob;
   final _formKey1 = GlobalKey<FormState>();
   bool _obscurePw  = true;
   bool _obscureCfm = true;
 
-  // Step 2 — address
-  final _houseController   = TextEditingController();
-  final _blockController   = TextEditingController();
-  final _sectorController  = TextEditingController();
-  final _sectionController = TextEditingController();
-  final _unitController    = TextEditingController();
-  final _deptController    = TextEditingController();
-  final _gradeController   = TextEditingController();
-  final _empNoController   = TextEditingController();
-  final _formKey2 = GlobalKey<FormState>();
+  // Step 2 — address + org
+  final _houseCtrl   = TextEditingController();
+  final _blockCtrl   = TextEditingController();
+  final _sectorCtrl  = TextEditingController();
+  final _empNoCtrl   = TextEditingController();
+  final _formKey2    = GlobalKey<FormState>();
   String? _selectedOrgId;
-  List<Map<String, dynamic>> _orgs = [];
+  String? _selectedGrade;
+  String? _selectedDept;
+  List<OrganisationModel> _orgs = [];
   bool _loadingOrgs = true;
 
-  // Step 3 — driving license (optional)
-  final _dlNumberController = TextEditingController();
-  final _formKey3 = GlobalKey<FormState>();
+  // Step 3 — driving license
+  final _dlNumberCtrl = TextEditingController();
+  final _formKey3     = GlobalKey<FormState>();
   DateTime? _dlExpiry;
 
   bool _isSubmitting = false;
   String? _errorMessage;
+
+  // Derived from selected org
+  List<String> get _grades => _orgs
+      .where((o) => o.id == _selectedOrgId)
+      .firstOrNull?.grades ?? [];
+  List<String> get _departments => _orgs
+      .where((o) => o.id == _selectedOrgId)
+      .firstOrNull?.departments ?? [];
 
   @override
   void initState() {
@@ -61,23 +70,14 @@ class _ResidentRegistrationScreenState
   Future<void> _loadOrgs() async {
     final fs = ref.read(firestoreServiceProvider);
     final orgs = await fs.getOrganisations();
-    if (mounted) {
-      setState(() {
-        _orgs = orgs.map((o) => {'id': o.id, 'name': o.name}).toList();
-        _loadingOrgs = false;
-      });
-    }
+    if (mounted) setState(() { _orgs = orgs; _loadingOrgs = false; });
   }
 
   @override
   void dispose() {
-    for (final c in [
-      _emailController, _passwordController, _confirmController,
-      _nameController, _phoneController, _houseController,
-      _blockController, _sectorController, _sectionController,
-      _unitController, _deptController, _gradeController,
-      _empNoController, _dlNumberController,
-    ]) { c.dispose(); }
+    for (final c in [_emailCtrl, _passwordCtrl, _confirmCtrl, _nameCtrl,
+        _phoneCtrl, _cnicCtrl, _houseCtrl, _blockCtrl, _sectorCtrl,
+        _empNoCtrl, _dlNumberCtrl]) { c.dispose(); }
     _pageController.dispose();
     super.dispose();
   }
@@ -87,60 +87,84 @@ class _ResidentRegistrationScreenState
     _pageController.nextPage(
         duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
   }
-
   void _prevStep() {
     setState(() => _currentStep--);
     _pageController.previousPage(
         duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
   }
 
+  Future<bool> _checkDuplicates() async {
+    final fs = ref.read(firestoreServiceProvider);
+    // Check email via Firebase Auth (handled at createUser)
+    // Check CNIC
+    final cnicClean = Validators.cleanCnic(_cnicCtrl.text);
+    if (cnicClean.isNotEmpty) {
+      final exists = await fs.residentCnicExists(cnicClean);
+      if (exists) {
+        setState(() => _errorMessage = 'This CNIC is already registered.');
+        return false;
+      }
+    }
+    // Check house number
+    final existing = await fs.residentByHouseNumber(_houseCtrl.text.trim());
+    if (existing != null) {
+      setState(() => _errorMessage =
+          'House ${_houseCtrl.text.trim()} already has a registered resident.');
+      return false;
+    }
+    // Check employee number
+    if (_empNoCtrl.text.trim().isNotEmpty) {
+      final empExists = await fs.residentByEmployeeNumber(
+          Validators.formatEmployeeNumber(_empNoCtrl.text.trim()));
+      if (empExists != null) {
+        setState(() => _errorMessage = 'This employee number is already registered.');
+        return false;
+      }
+    }
+    return true;
+  }
+
   Future<void> _submit() async {
     if (!_formKey3.currentState!.validate()) return;
-
     setState(() { _isSubmitting = true; _errorMessage = null; });
 
     try {
+      final ok = await _checkDuplicates();
+      if (!ok) { setState(() => _isSubmitting = false); return; }
+
       final authService = ref.read(authServiceProvider);
       final fs          = ref.read(firestoreServiceProvider);
 
-      // Check CNIC duplicate not needed for resident (no CNIC at registration)
-      // Check email duplicate handled by Firebase Auth
-
-      // Create Firebase Auth account
       await authService.createUser(
-        email:    _emailController.text.trim(),
-        password: _passwordController.text,
-        name:     _nameController.text.trim(),
-        phone:    _phoneController.text.trim(),
+        email:    _emailCtrl.text.trim(),
+        password: _passwordCtrl.text,
+        name:     _nameCtrl.text.trim(),
+        phone:    Validators.cleanPhone(_phoneCtrl.text),
         role:     UserRole.resident,
       );
 
       final uid = authService.currentUser?.uid;
       if (uid == null) throw Exception('Account creation failed');
 
-      // Create resident document
+      final empFormatted = _empNoCtrl.text.trim().isEmpty ? null
+          : Validators.formatEmployeeNumber(_empNoCtrl.text.trim());
+
       final resident = ResidentModel(
         id:             uid,
-        name:           _nameController.text.trim(),
-        employeeNumber: _empNoController.text.trim().isEmpty
-            ? null : _empNoController.text.trim(),
+        name:           _nameCtrl.text.trim(),
+        cnic:           Validators.cleanCnic(_cnicCtrl.text),
+        employeeNumber: empFormatted,
         organisationId: _selectedOrgId,
-        houseNumber:    _houseController.text.trim(),
-        block:          _blockController.text.trim().isEmpty
-            ? null : _blockController.text.trim(),
-        sector:         _sectorController.text.trim().isEmpty
-            ? null : _sectorController.text.trim(),
-        section:        _sectionController.text.trim().isEmpty
-            ? null : _sectionController.text.trim(),
-        unit:           _unitController.text.trim().isEmpty
-            ? null : _unitController.text.trim(),
-        department:     _deptController.text.trim().isEmpty
-            ? null : _deptController.text.trim(),
-        grade:          _gradeController.text.trim().isEmpty
-            ? null : _gradeController.text.trim(),
-        phoneMobile:    _phoneController.text.trim(),
-        drivingLicenseNumber: _dlNumberController.text.trim().isEmpty
-            ? null : _dlNumberController.text.trim(),
+        houseNumber:    _houseCtrl.text.trim().toUpperCase(),
+        block:          _blockCtrl.text.trim().isEmpty ? null
+            : _blockCtrl.text.trim(),
+        sector:         _sectorCtrl.text.trim().isEmpty ? null
+            : _sectorCtrl.text.trim(),
+        department:     _selectedDept,
+        grade:          _selectedGrade,
+        phoneMobile:    Validators.cleanPhone(_phoneCtrl.text),
+        drivingLicenseNumber: _dlNumberCtrl.text.trim().isEmpty ? null
+            : _dlNumberCtrl.text.trim(),
         drivingLicenseExpiryDate: _dlExpiry?.toIso8601String(),
         isActive:       false,
         status:         ResidentStatus.pending,
@@ -167,10 +191,7 @@ class _ResidentRegistrationScreenState
             ),
             actions: [
               ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  context.go('/login');
-                },
+                onPressed: () { Navigator.pop(ctx); context.go('/login'); },
                 child: const Text('Back to Login'),
               ),
             ],
@@ -196,8 +217,7 @@ class _ResidentRegistrationScreenState
         leading: _currentStep == 0
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.go('/login'),
-              )
+                onPressed: () => context.go('/login'))
             : null,
       ),
       body: Column(
@@ -210,43 +230,29 @@ class _ResidentRegistrationScreenState
                 final active   = i == _currentStep;
                 final complete = i < _currentStep;
                 return Expanded(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 28, height: 28,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: complete
-                              ? Colors.green
-                              : active
-                                  ? AppTheme.primaryColor
-                                  : Colors.grey.shade200,
-                        ),
-                        child: Center(
-                          child: complete
-                              ? const Icon(Icons.check, size: 16,
-                                  color: Colors.white)
-                              : Text('${i + 1}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: active
-                                        ? Colors.white
-                                        : Colors.grey.shade500,
-                                  )),
-                        ),
+                  child: Row(children: [
+                    Container(
+                      width: 28, height: 28,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: complete ? Colors.green
+                            : active ? AppTheme.primaryColor
+                            : Colors.grey.shade200,
                       ),
-                      if (i < 2)
-                        Expanded(
-                          child: Container(
-                            height: 2,
-                            color: complete
-                                ? Colors.green
-                                : Colors.grey.shade200,
-                          ),
-                        ),
-                    ],
-                  ),
+                      child: Center(
+                        child: complete
+                            ? const Icon(Icons.check, size: 16, color: Colors.white)
+                            : Text('${i + 1}',
+                                style: TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.bold,
+                                    color: active ? Colors.white
+                                        : Colors.grey.shade500)),
+                      ),
+                    ),
+                    if (i < 2)
+                      Expanded(child: Container(height: 2,
+                          color: complete ? Colors.green : Colors.grey.shade200)),
+                  ]),
                 );
               }),
             ),
@@ -262,16 +268,11 @@ class _ResidentRegistrationScreenState
               ],
             ),
           ),
-          // Pages
           Expanded(
             child: PageView(
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildStep1(),
-                _buildStep2(),
-                _buildStep3(),
-              ],
+              children: [_buildStep1(), _buildStep2(), _buildStep3()],
             ),
           ),
         ],
@@ -279,7 +280,7 @@ class _ResidentRegistrationScreenState
     );
   }
 
-  // ── Step 1 — Account details ──────────────────────────────────────────────
+  // ── Step 1 — Account ─────────────────────────────────────────────────────
   Widget _buildStep1() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -292,45 +293,82 @@ class _ResidentRegistrationScreenState
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
             const SizedBox(height: 20),
             TextFormField(
-              controller: _nameController,
+              controller: _nameCtrl,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
-                labelText: 'Full Name *',
-                prefixIcon: Icon(Icons.person_outline),
-              ),
+                  labelText: 'Full Name *',
+                  prefixIcon: Icon(Icons.person_outline)),
               validator: (v) => Validators.required(v, fieldName: 'Full name'),
             ),
             const SizedBox(height: 16),
+            // CNIC — no dashes
             TextFormField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
+              controller: _cnicCtrl,
+              keyboardType: TextInputType.number,
+              maxLength: 13,
               decoration: const InputDecoration(
-                labelText: 'Mobile Number *',
-                prefixIcon: Icon(Icons.phone_outlined),
-                hintText: '03XX-XXXXXXX',
+                  labelText: 'CNIC *',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                  hintText: '13 digits, no dashes',
+                  counterText: ''),
+              validator: Validators.cnic,
+            ),
+            const SizedBox(height: 16),
+            // Date of Birth
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _dob ?? DateTime(1985),
+                  firstDate: DateTime(1930),
+                  lastDate: DateTime.now().subtract(const Duration(days: 6570)),
+                );
+                if (picked != null) setState(() => _dob = picked);
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                    labelText: 'Date of Birth',
+                    prefixIcon: Icon(Icons.cake_outlined)),
+                child: Text(
+                  _dob != null
+                      ? '${_dob!.day.toString().padLeft(2,'0')}/'
+                        '${_dob!.month.toString().padLeft(2,'0')}/${_dob!.year}'
+                      : 'Select date (optional)',
+                  style: TextStyle(color: _dob != null ? null : Colors.grey),
+                ),
               ),
+            ),
+            const SizedBox(height: 16),
+            // Phone — no dashes
+            TextFormField(
+              controller: _phoneCtrl,
+              keyboardType: TextInputType.phone,
+              maxLength: 11,
+              decoration: const InputDecoration(
+                  labelText: 'Mobile Number *',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                  hintText: '03XXXXXXXXXX (11 digits)',
+                  counterText: ''),
               validator: Validators.phone,
             ),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _emailController,
+              controller: _emailCtrl,
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
-                labelText: 'Email *',
-                prefixIcon: Icon(Icons.email_outlined),
-              ),
+                  labelText: 'Email *',
+                  prefixIcon: Icon(Icons.email_outlined)),
               validator: Validators.email,
             ),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _passwordController,
+              controller: _passwordCtrl,
               obscureText: _obscurePw,
               decoration: InputDecoration(
                 labelText: 'Password *',
                 prefixIcon: const Icon(Icons.lock_outlined),
                 suffixIcon: IconButton(
-                  icon: Icon(_obscurePw
-                      ? Icons.visibility_outlined
+                  icon: Icon(_obscurePw ? Icons.visibility_outlined
                       : Icons.visibility_off_outlined),
                   onPressed: () => setState(() => _obscurePw = !_obscurePw),
                 ),
@@ -343,20 +381,19 @@ class _ResidentRegistrationScreenState
             ),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _confirmController,
+              controller: _confirmCtrl,
               obscureText: _obscureCfm,
               decoration: InputDecoration(
                 labelText: 'Confirm Password *',
                 prefixIcon: const Icon(Icons.lock_outlined),
                 suffixIcon: IconButton(
-                  icon: Icon(_obscureCfm
-                      ? Icons.visibility_outlined
+                  icon: Icon(_obscureCfm ? Icons.visibility_outlined
                       : Icons.visibility_off_outlined),
                   onPressed: () => setState(() => _obscureCfm = !_obscureCfm),
                 ),
               ),
               validator: (v) {
-                if (v != _passwordController.text) return 'Passwords do not match';
+                if (v != _passwordCtrl.text) return 'Passwords do not match';
                 return null;
               },
             ),
@@ -376,7 +413,7 @@ class _ResidentRegistrationScreenState
     );
   }
 
-  // ── Step 2 — Address & organisation ──────────────────────────────────────
+  // ── Step 2 — Address & Organisation ──────────────────────────────────────
   Widget _buildStep2() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -388,130 +425,116 @@ class _ResidentRegistrationScreenState
             const Text('Address & Organisation',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
             const SizedBox(height: 20),
+            // House number with format hint
             TextFormField(
-              controller: _houseController,
+              controller: _houseCtrl,
+              textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(
-                labelText: 'House Number *',
-                prefixIcon: Icon(Icons.home_outlined),
+                  labelText: 'House Number *',
+                  prefixIcon: Icon(Icons.home_outlined),
+                  hintText: 'e.g. BQ-12, A-150, D+-5'),
+              validator: Validators.houseNumber,
+            ),
+            const SizedBox(height: 16),
+            Row(children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _blockCtrl,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(labelText: 'Block'),
+                ),
               ),
-              validator: (v) =>
-                  Validators.required(v, fieldName: 'House number'),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _sectorCtrl,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(labelText: 'Sector'),
+                ),
+              ),
+            ]),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _blockController,
-                    decoration: const InputDecoration(
-                      labelText: 'Block',
-                      prefixIcon: Icon(Icons.grid_view_outlined),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _sectorController,
-                    decoration: const InputDecoration(
-                      labelText: 'Sector',
-                      prefixIcon: Icon(Icons.map_outlined),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _sectionController,
-                    decoration: const InputDecoration(labelText: 'Section'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _unitController,
-                    decoration: const InputDecoration(labelText: 'Unit'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Organisation dropdown
+            // Organisation
             _loadingOrgs
                 ? const Center(child: CircularProgressIndicator())
                 : DropdownButtonFormField<String>(
                     value: _selectedOrgId,
                     decoration: const InputDecoration(
-                      labelText: 'Organisation',
-                      prefixIcon: Icon(Icons.business_outlined),
-                    ),
-                    items: _orgs
-                        .map((o) => DropdownMenuItem<String>(
-                              value: o['id'] as String,
-                              child: Text(o['name'] as String),
-                            ))
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedOrgId = v),
+                        labelText: 'Organisation *',
+                        prefixIcon: Icon(Icons.business_outlined)),
+                    items: _orgs.map((o) => DropdownMenuItem(
+                            value: o.id, child: Text(o.name))).toList(),
+                    onChanged: (v) => setState(() {
+                      _selectedOrgId = v;
+                      _selectedGrade = null;
+                      _selectedDept  = null;
+                    }),
+                    validator: (v) => v == null ? 'Select organisation' : null,
                   ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _deptController,
-                    decoration: const InputDecoration(labelText: 'Department'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _gradeController,
-                    decoration: const InputDecoration(labelText: 'Grade'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _empNoController,
-              decoration: const InputDecoration(
-                labelText: 'Employee / Service Number',
-                prefixIcon: Icon(Icons.badge_outlined),
-                hintText: 'Leave blank if not applicable',
+            // Department — org-linked
+            if (_selectedOrgId != null && _departments.isNotEmpty)
+              DropdownButtonFormField<String>(
+                value: _selectedDept,
+                decoration: const InputDecoration(
+                    labelText: 'Department',
+                    prefixIcon: Icon(Icons.account_tree_outlined)),
+                items: _departments.map((d) =>
+                    DropdownMenuItem(value: d, child: Text(d))).toList(),
+                onChanged: (v) => setState(() => _selectedDept = v),
               ),
+            if (_selectedOrgId != null && _departments.isNotEmpty)
+              const SizedBox(height: 16),
+            // Grade — org-linked
+            if (_selectedOrgId != null && _grades.isNotEmpty)
+              DropdownButtonFormField<String>(
+                value: _selectedGrade,
+                decoration: const InputDecoration(
+                    labelText: 'Grade',
+                    prefixIcon: Icon(Icons.grade_outlined)),
+                items: _grades.map((g) =>
+                    DropdownMenuItem(value: g, child: Text(g))).toList(),
+                onChanged: (v) => setState(() => _selectedGrade = v),
+              ),
+            if (_selectedOrgId != null && _grades.isNotEmpty)
+              const SizedBox(height: 16),
+            // Employee number
+            TextFormField(
+              controller: _empNoCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                  labelText: 'Employee / Service Number',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                  hintText: 'FFL-00123'),
+              validator: Validators.employeeNumber,
+              onChanged: (v) {
+                // Auto-format on focus-out handled by validator
+              },
             ),
             const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _prevStep,
-                    child: const Text('Back'),
-                  ),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                    onPressed: _prevStep, child: const Text('Back')),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (_formKey2.currentState!.validate()) _nextStep();
+                  },
+                  child: const Text('Continue'),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (_formKey2.currentState!.validate()) _nextStep();
-                    },
-                    child: const Text('Continue'),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ]),
           ],
         ),
       ),
     );
   }
 
-  // ── Step 3 — Driving license (optional) + submit ──────────────────────────
+  // ── Step 3 — Driving license + submit ────────────────────────────────────
   Widget _buildStep3() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -524,24 +547,21 @@ class _ResidentRegistrationScreenState
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
             const SizedBox(height: 4),
             Text('Optional — can be added later from your profile',
-                style: TextStyle(
-                    fontSize: 12, color: Colors.grey.shade500)),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
             const SizedBox(height: 20),
             TextFormField(
-              controller: _dlNumberController,
+              controller: _dlNumberCtrl,
               decoration: const InputDecoration(
-                labelText: 'License Number',
-                prefixIcon: Icon(Icons.drive_eta_outlined),
-              ),
+                  labelText: 'License Number',
+                  prefixIcon: Icon(Icons.drive_eta_outlined)),
             ),
             const SizedBox(height: 16),
-            // DL expiry date picker
             InkWell(
               onTap: () async {
                 final picked = await showDatePicker(
                   context: context,
-                  initialDate: _dlExpiry ?? DateTime.now().add(
-                      const Duration(days: 365)),
+                  initialDate: _dlExpiry ??
+                      DateTime.now().add(const Duration(days: 365)),
                   firstDate: DateTime.now(),
                   lastDate: DateTime(2050),
                 );
@@ -549,20 +569,15 @@ class _ResidentRegistrationScreenState
               },
               child: InputDecorator(
                 decoration: const InputDecoration(
-                  labelText: 'License Expiry Date',
-                  prefixIcon: Icon(Icons.calendar_today_outlined),
-                ),
+                    labelText: 'License Expiry Date',
+                    prefixIcon: Icon(Icons.calendar_today_outlined)),
                 child: Text(
                   _dlExpiry != null
-                      ? '${_dlExpiry!.day.toString().padLeft(2, "0")}/'
-                        '${_dlExpiry!.month.toString().padLeft(2, "0")}/'
-                        '${_dlExpiry!.year}'
+                      ? '${_dlExpiry!.day.toString().padLeft(2,'0')}/'
+                        '${_dlExpiry!.month.toString().padLeft(2,'0')}/${_dlExpiry!.year}'
                       : 'Select date (optional)',
                   style: TextStyle(
-                    color: _dlExpiry != null
-                        ? Theme.of(context).textTheme.bodyLarge?.color
-                        : Colors.grey,
-                  ),
+                      color: _dlExpiry != null ? null : Colors.grey),
                 ),
               ),
             ),
@@ -580,19 +595,21 @@ class _ResidentRegistrationScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Summary',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
+                      style: TextStyle(fontWeight: FontWeight.bold,
                           color: AppTheme.primaryColor)),
                   const Divider(),
-                  _SummaryRow('Name', _nameController.text),
-                  _SummaryRow('Phone', _phoneController.text),
-                  _SummaryRow('Email', _emailController.text),
-                  _SummaryRow('House', _houseController.text),
+                  _SummaryRow('Name',  _nameCtrl.text),
+                  _SummaryRow('Phone', _phoneCtrl.text),
+                  _SummaryRow('Email', _emailCtrl.text),
+                  _SummaryRow('House', _houseCtrl.text.toUpperCase()),
                   if (_selectedOrgId != null)
                     _SummaryRow('Org',
-                        _orgs.firstWhere(
-                            (o) => o['id'] == _selectedOrgId,
-                            orElse: () => {'name': ''})['name'] as String),
+                        _orgs.where((o) => o.id == _selectedOrgId)
+                            .firstOrNull?.name ?? ''),
+                  if (_selectedDept != null)
+                    _SummaryRow('Dept', _selectedDept!),
+                  if (_selectedGrade != null)
+                    _SummaryRow('Grade', _selectedGrade!),
                 ],
               ),
             ),
@@ -605,44 +622,34 @@ class _ResidentRegistrationScreenState
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline,
-                        color: Colors.red, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(_errorMessage!,
-                          style: const TextStyle(
-                              color: Colors.red, fontSize: 13)),
-                    ),
-                  ],
-                ),
+                child: Row(children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_errorMessage!,
+                      style: const TextStyle(color: Colors.red, fontSize: 13))),
+                ]),
               ),
             ],
             const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
                     onPressed: _isSubmitting ? null : _prevStep,
-                    child: const Text('Back'),
-                  ),
+                    child: const Text('Back')),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submit,
+                  child: _isSubmitting
+                      ? const SizedBox(height: 20, width: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Text('Submit Registration'),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton(
-                    onPressed: _isSubmitting ? null : _submit,
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            height: 20, width: 20,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : const Text('Submit Registration'),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ]),
           ],
         ),
       ),
@@ -660,20 +667,13 @@ class _SummaryRow extends StatelessWidget {
     if (value.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 80,
+      child: Row(children: [
+        SizedBox(width: 60,
             child: Text(label,
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          ),
-          Expanded(
-            child: Text(value,
-                style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w500)),
-          ),
-        ],
-      ),
+                style: const TextStyle(fontSize: 12, color: Colors.grey))),
+        Expanded(child: Text(value,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
+      ]),
     );
   }
 }
