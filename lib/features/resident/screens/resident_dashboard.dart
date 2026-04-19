@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/themes.dart';
 import '../../../providers/auth_provider.dart';
+import 'package:go_router/go_router.dart';
 import 'tabs/my_staff_tab.dart';
 import 'tabs/my_family_tab.dart';
 import 'tabs/my_vehicles_tab.dart';
@@ -50,6 +51,11 @@ class _ResidentDashboardState extends ConsumerState<ResidentDashboard> {
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit Profile',
+            onPressed: () => context.push('/resident/edit-profile'),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => ref.read(authServiceProvider).signOut(),

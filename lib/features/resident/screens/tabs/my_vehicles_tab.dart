@@ -259,15 +259,51 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
                       '\${v.colour != null ? " • \${v.colour}" : ""}',
                       style: const TextStyle(fontSize: 12),
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.remove_circle_outline,
-                          color: Colors.red),
-                      onPressed: () => _deactivate(v.id),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _StatusBadge(v.status),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline,
+                              color: Colors.red, size: 20),
+                          tooltip: 'Deactivate',
+                          onPressed: () => _deactivate(v.id),
+                        ),
+                      ],
                     ),
                   ),
                 );
               },
             ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge(this.status);
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (status) {
+      'approved'    => Colors.green,
+      'underReview' => Colors.blue,
+      'rejected'    => Colors.red,
+      'cancelled'   => Colors.grey,
+      _             => Colors.orange, // pending + fallback
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color, width: 1),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+      ),
     );
   }
 }

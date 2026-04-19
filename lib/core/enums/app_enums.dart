@@ -150,8 +150,10 @@ enum GuestVisitStatus {
 
 enum PetStatus {
   pending,
+  underReview,
   approved,
   rejected,
+  cancelled,
 }
 
 enum PetType {

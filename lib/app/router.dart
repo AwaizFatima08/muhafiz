@@ -9,6 +9,7 @@ import '../features/gate_clerk/screens/clerk_dashboard.dart';
 import '../features/resident/screens/resident_dashboard.dart';
 import '../features/resident/screens/resident_registration_screen.dart';
 import '../features/resident/screens/resident_worker_request_screen.dart';
+import '../features/resident/screens/edit_profile_screen.dart';
 import '../features/gate_clerk/screens/guest_entry_screen.dart';
 import '../features/gate_clerk/screens/guest_exit_screen.dart';
 import '../features/gate_clerk/screens/vehicle_log_screen.dart';
@@ -137,6 +138,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/resident/register-worker',
         builder: (context, state) =>
             const ResidentWorkerRequestScreen(),
+      ),
+      GoRoute(
+        path: '/resident/edit-profile',
+        builder: (context, state) => const EditProfileScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

@@ -25,6 +25,28 @@ class _MyPetsTabState extends ConsumerState<MyPetsTab> {
     _load();
   }
 
+  Future<void> _cancel(String petId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel pet request?'),
+        content: const Text('This will cancel the registration request.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('No')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Yes, cancel',
+                  style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await ref.read(firestoreServiceProvider)
+          .updatePet(petId, {'status': 'cancelled'});
+      _load();
+    }
+  }
+
   Future<void> _load() async {
     final fs = ref.read(firestoreServiceProvider);
     final p = await fs.getPetsForResident(widget.residentId);
@@ -171,9 +193,11 @@ class _MyPetsTabState extends ConsumerState<MyPetsTab> {
 
   Color _statusColor(PetStatus s) {
     switch (s) {
-      case PetStatus.approved: return Colors.green;
-      case PetStatus.rejected: return Colors.red;
-      case PetStatus.pending:  return Colors.orange;
+      case PetStatus.approved:    return Colors.green;
+      case PetStatus.underReview: return Colors.blue;
+      case PetStatus.rejected:    return Colors.red;
+      case PetStatus.cancelled:   return Colors.grey;
+      case PetStatus.pending:     return Colors.orange;
     }
   }
 
@@ -225,26 +249,37 @@ class _MyPetsTabState extends ConsumerState<MyPetsTab> {
                       p.breed != null ? p.breed! : p.petType.name,
                       style: const TextStyle(fontSize: 12),
                     ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _statusColor(p.status)
-                            .withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
                             color: _statusColor(p.status)
-                                .withValues(alpha: 0.3)),
-                      ),
-                      child: Text(
-                        p.status.name[0].toUpperCase() +
-                            p.status.name.substring(1),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _statusColor(p.status),
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: _statusColor(p.status)
+                                    .withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            p.status.name[0].toUpperCase() +
+                                p.status.name.substring(1),
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: _statusColor(p.status)),
+                          ),
                         ),
-                      ),
+                        if (p.status != PetStatus.approved)
+                          IconButton(
+                            icon: const Icon(Icons.cancel_outlined,
+                                color: Colors.red, size: 20),
+                            tooltip: 'Cancel request',
+                            onPressed: () => _cancel(p.id),
+                          ),
+                      ],
                     ),
                   ),
                 );
