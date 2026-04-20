@@ -1,4 +1,5 @@
-import 'dart:typed_data';
+// FIX: removed unnecessary 'dart:typed_data' import — all used elements
+// are already provided by 'package:flutter/services.dart'.
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -20,32 +21,31 @@ class GuestSlipPdfService {
     required SiteSettings settings,
     required String clerkName,
   }) async {
-    final pdf  = pw.Document();
-    final font = await PdfGoogleFonts.notoSansRegular();
+    final pdf      = pw.Document();
+    final font     = await PdfGoogleFonts.notoSansRegular();
     final fontBold = await PdfGoogleFonts.notoSansBold();
 
-    // Load Noto Nastaliq for Urdu
+    // Load Noto Nastaliq for Urdu (E6: Urdu font embedding)
     pw.Font? urduFont;
     try {
-      final fontData = await rootBundle.load(
-          'assets/fonts/NotoNastaliqUrdu-Regular.ttf');
+      final fontData = await rootBundle
+          .load('assets/fonts/NotoNastaliqUrdu-Regular.ttf');
       urduFont = pw.Font.ttf(fontData);
     } catch (_) {
-      urduFont = font; // fallback
+      urduFont = font; // fallback to Latin font
     }
 
     // QR code image bytes
     final qrBytes = await _generateQrBytes(visit.slipQrValue);
 
     // Format times
-    final fmt      = DateFormat('dd/MM/yyyy HH:mm');
-    final entryStr = fmt.format(visit.entryTime);
+    final fmt       = DateFormat('dd/MM/yyyy HH:mm');
+    final entryStr  = fmt.format(visit.entryTime);
     final expiryStr = fmt.format(visit.expiresAt);
 
-    // Warnings
-    // Sort warnings by key so warning_1 before warning_2 etc
-    final enRaw = settings.guestSlipWarnings?.english ?? {};
-    final urRaw = settings.guestSlipWarnings?.urdu ?? {};
+    // Sort warnings so warning_1 comes before warning_2 etc.
+    final enRaw  = settings.guestSlipWarnings?.english ?? {};
+    final urRaw  = settings.guestSlipWarnings?.urdu ?? {};
     final enKeys = enRaw.keys.toList()..sort();
     final urKeys = urRaw.keys.toList()..sort();
     final enWarnings = {for (final k in enKeys) k: enRaw[k]!};
@@ -58,7 +58,7 @@ class GuestSlipPdfService {
         build: (ctx) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // ── Header ──────────────────────────────────────────────────
+            // ── Header ────────────────────────────────────────────────
             pw.Center(
               child: pw.Column(children: [
                 pw.Text(settings.siteName,
@@ -77,7 +77,7 @@ class GuestSlipPdfService {
             ),
             pw.Divider(thickness: 0.5, color: PdfColors.black),
 
-            // ── Visitor details ──────────────────────────────────────────
+            // ── Visitor details ────────────────────────────────────────
             _row(font, fontBold, 'Visitor', visit.visitorName),
             _row(font, fontBold, 'CNIC', visit.visitorCnic),
             _row(font, fontBold, 'Visiting',
@@ -93,7 +93,7 @@ class GuestSlipPdfService {
                 valueColor: PdfColors.red700),
             pw.SizedBox(height: 4),
 
-            // ── QR code + slip ID ────────────────────────────────────────
+            // ── QR code + slip ID ──────────────────────────────────────
             pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
@@ -112,11 +112,12 @@ class GuestSlipPdfService {
                               font: font,
                               fontSize: 7,
                               color: PdfColors.grey600)),
-                      pw.Text(visit.id.substring(0, 12).toUpperCase(),
+                      pw.Text(
+                          visit.id.substring(0, 12).toUpperCase(),
                           style: pw.TextStyle(
-                              font: fontBold,
-                              fontSize: 7)),
+                              font: fontBold, fontSize: 7)),
                       pw.SizedBox(height: 4),
+                      // FIX: use string interpolation instead of +
                       pw.Text('Processed by: $clerkName',
                           style: pw.TextStyle(
                               font: font,
@@ -129,7 +130,7 @@ class GuestSlipPdfService {
             ),
             pw.Divider(thickness: 0.5, color: PdfColors.black),
 
-            // ── English warnings ─────────────────────────────────────────
+            // ── English warnings ───────────────────────────────────────
             if (enWarnings.isNotEmpty) ...[
               pw.Text('Instructions',
                   style: pw.TextStyle(
@@ -137,19 +138,24 @@ class GuestSlipPdfService {
                       fontSize: 7,
                       color: PdfColors.grey700)),
               pw.SizedBox(height: 2),
-              ...enWarnings.entries.toList().asMap().entries.map((entry) {
-                final i = entry.key + 1;
+              ...enWarnings.entries
+                  .toList()
+                  .asMap()
+                  .entries
+                  .map((entry) {
+                final i    = entry.key + 1;
                 final text = entry.value.value;
                 return pw.Padding(
                   padding: const pw.EdgeInsets.only(bottom: 2),
                   child: pw.Text('$i. $text',
-                      style: pw.TextStyle(font: font, fontSize: 6.5)),
+                      style:
+                          pw.TextStyle(font: font, fontSize: 6.5)),
                 );
               }),
               pw.SizedBox(height: 3),
             ],
 
-            // ── Urdu warnings ────────────────────────────────────────────
+            // ── Urdu warnings ──────────────────────────────────────────
             if (urWarnings.isNotEmpty && urduFont != null) ...[
               pw.Divider(
                   thickness: 0.3, color: PdfColors.grey400),
@@ -161,27 +167,34 @@ class GuestSlipPdfService {
                       fontSize: 8,
                       color: PdfColors.grey700)),
               pw.SizedBox(height: 2),
-              ...urWarnings.entries.toList().asMap().entries.map((entry) {
+              ...urWarnings.entries
+                  .toList()
+                  .asMap()
+                  .entries
+                  .map((entry) {
                 final text = entry.value.value;
                 return pw.Padding(
                   padding: const pw.EdgeInsets.only(bottom: 2),
                   child: pw.Text(text,
                       textDirection: pw.TextDirection.rtl,
-                      style: pw.TextStyle(
-                          font: urduFont, fontSize: 7)),
+                      style:
+                          pw.TextStyle(font: urduFont, fontSize: 7)),
                 );
               }),
             ],
 
-            // ── Footer ───────────────────────────────────────────────────
+            // ── Footer ─────────────────────────────────────────────────
             pw.Spacer(),
             pw.Divider(thickness: 0.3, color: PdfColors.grey400),
             pw.Center(
-              child: pw.Text(settings.siteName + ' — Security Office',
-                  style: pw.TextStyle(
-                      font: font,
-                      fontSize: 6,
-                      color: PdfColors.grey500)),
+              child: pw.Text(
+                // FIX: string interpolation instead of + concatenation
+                '${settings.siteName} — Security Office',
+                style: pw.TextStyle(
+                    font: font,
+                    fontSize: 6,
+                    color: PdfColors.grey500),
+              ),
             ),
           ],
         ),
@@ -212,7 +225,9 @@ class GuestSlipPdfService {
                     color: PdfColors.grey700)),
           ),
           pw.Text(': ',
-              style: pw.TextStyle(font: font, fontSize: 7,
+              style: pw.TextStyle(
+                  font: font,
+                  fontSize: 7,
                   color: PdfColors.grey600)),
           pw.Expanded(
             child: pw.Text(value,
@@ -228,12 +243,20 @@ class GuestSlipPdfService {
 
   static Future<Uint8List?> _generateQrBytes(String data) async {
     try {
+      // FIX: 'color' and 'emptyColor' deprecated in qr_flutter — replaced
+      // with eyeStyle and dataModuleStyle per current API.
       final painter = QrPainter(
         data: data,
         version: QrVersions.auto,
         errorCorrectionLevel: QrErrorCorrectLevel.M,
-        color: const material.Color(0xFF000000),
-        emptyColor: const material.Color(0xFFFFFFFF),
+        eyeStyle: const QrEyeStyle(
+          eyeShape: QrEyeShape.square,
+          color: material.Color(0xFF000000),
+        ),
+        dataModuleStyle: const QrDataModuleStyle(
+          dataModuleShape: QrDataModuleShape.square,
+          color: material.Color(0xFF000000),
+        ),
       );
       final image = await painter.toImageData(200);
       return image?.buffer.asUint8List();
@@ -251,7 +274,8 @@ class GuestSlipPdfService {
   }
 
   /// Share/save PDF (fallback if no printer).
-  static Future<void> sharePdf(Uint8List pdfBytes, String visitId) async {
+  static Future<void> sharePdf(
+      Uint8List pdfBytes, String visitId) async {
     await Printing.sharePdf(
       bytes: pdfBytes,
       filename: 'guest_slip_$visitId.pdf',

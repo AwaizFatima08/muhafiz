@@ -25,32 +25,36 @@ class _MyPetsTabState extends ConsumerState<MyPetsTab> {
     _load();
   }
 
+  Future<void> _load() async {
+    final fs = ref.read(firestoreServiceProvider);
+    final p = await fs.getPetsForResident(widget.residentId);
+    if (mounted) setState(() { _pets = p; _loading = false; });
+  }
+
   Future<void> _cancel(String petId) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel pet request?'),
-        content: const Text('This will cancel the registration request.'),
+        content:
+            const Text('This will cancel the registration request.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
               child: const Text('No')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Yes, cancel',
                   style: TextStyle(color: Colors.red))),
         ],
       ),
     );
     if (confirm == true) {
-      await ref.read(firestoreServiceProvider)
+      await ref
+          .read(firestoreServiceProvider)
           .updatePet(petId, {'status': 'cancelled'});
       _load();
     }
-  }
-
-  Future<void> _load() async {
-    final fs = ref.read(firestoreServiceProvider);
-    final p = await fs.getPetsForResident(widget.residentId);
-    if (mounted) setState(() { _pets = p; _loading = false; });
   }
 
   Future<void> _showAddSheet() async {
@@ -70,8 +74,7 @@ class _MyPetsTabState extends ConsumerState<MyPetsTab> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
-              20, 20, 20,
-              MediaQuery.of(ctx).viewInsets.bottom + 20),
+              20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -85,14 +88,14 @@ class _MyPetsTabState extends ConsumerState<MyPetsTab> {
                     fontSize: 12, color: Colors.grey.shade500)),
               const SizedBox(height: 16),
               DropdownButtonFormField<PetType>(
-                value: petType,
+                initialValue: petType,
                 decoration:
                     const InputDecoration(labelText: 'Pet Type *'),
                 items: PetType.values
                     .map((t) => DropdownMenuItem(
                           value: t,
-                          child: Text(t.name[0].toUpperCase() +
-                              t.name.substring(1)),
+                          child: Text(
+                              '${t.name[0].toUpperCase()}${t.name.substring(1)}'),
                         ))
                     .toList(),
                 onChanged: (v) => setSheet(() => petType = v!),
@@ -140,44 +143,53 @@ class _MyPetsTabState extends ConsumerState<MyPetsTab> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: saving ? null : () async {
-                      setSheet(() => saving = true);
-                      final fs = ref.read(firestoreServiceProvider);
-                      final storage = ref.read(storageServiceProvider);
-                      final pet = PetModel(
-                        id: '',
-                        residentId: widget.residentId,
-                        requestedBy: widget.residentId,
-                        petType: petType,
-                        petName: nameCtrl.text.trim().isEmpty
-                            ? null : nameCtrl.text.trim(),
-                        breed: breedCtrl.text.trim().isEmpty
-                            ? null : breedCtrl.text.trim(),
-                        vaccinationStatus: vaccinated,
-                        status: PetStatus.pending,
-                        requestInitiatedAt: DateTime.now(),
-                      );
-                      final petId = await fs.createPetRequest(pet);
-                      if (photoFile != null) {
-                        final url = await storage
-                            .uploadPetPhoto(petId, photoFile!);
-                        if (url != null) {
-                          await fs.updatePet(petId, {'photo_url': url});
-                        }
-                      }
-                      if (vacDocFile != null) {
-                        final url = await storage
-                            .uploadPetVaccinationDoc(petId, vacDocFile!);
-                        if (url != null) {
-                          await fs.updatePet(petId,
-                              {'vaccination_doc_url': url});
-                        }
-                      }
-                      Navigator.pop(ctx);
-                      _load();
-                    },
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            setSheet(() => saving = true);
+                            final fs = ref.read(firestoreServiceProvider);
+                            final storage =
+                                ref.read(storageServiceProvider);
+                            final pet = PetModel(
+                              id: '',
+                              residentId: widget.residentId,
+                              requestedBy: widget.residentId,
+                              petType: petType,
+                              petName: nameCtrl.text.trim().isEmpty
+                                  ? null
+                                  : nameCtrl.text.trim(),
+                              breed: breedCtrl.text.trim().isEmpty
+                                  ? null
+                                  : breedCtrl.text.trim(),
+                              vaccinationStatus: vaccinated,
+                              status: PetStatus.pending,
+                              requestInitiatedAt: DateTime.now(),
+                            );
+                            final petId = await fs.createPetRequest(pet);
+                            if (photoFile != null) {
+                              final url = await storage
+                                  .uploadPetPhoto(petId, photoFile!);
+                              if (url != null) {
+                                await fs.updatePet(
+                                    petId, {'photo_url': url});
+                              }
+                            }
+                            if (vacDocFile != null) {
+                              final url = await storage
+                                  .uploadPetVaccinationDoc(
+                                      petId, vacDocFile!);
+                              if (url != null) {
+                                await fs.updatePet(petId,
+                                    {'vaccination_doc_url': url});
+                              }
+                            }
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            _load();
+                          },
                     child: saving
-                        ? const SizedBox(height: 20, width: 20,
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white))
                         : const Text('Submit Request'),
@@ -192,13 +204,13 @@ class _MyPetsTabState extends ConsumerState<MyPetsTab> {
   }
 
   Color _statusColor(PetStatus s) {
-    switch (s) {
-      case PetStatus.approved:    return Colors.green;
-      case PetStatus.underReview: return Colors.blue;
-      case PetStatus.rejected:    return Colors.red;
-      case PetStatus.cancelled:   return Colors.grey;
-      case PetStatus.pending:     return Colors.orange;
-    }
+    return switch (s) {
+      PetStatus.approved    => Colors.green,
+      PetStatus.underReview => Colors.blue,
+      PetStatus.rejected    => Colors.red,
+      PetStatus.cancelled   => Colors.grey,
+      PetStatus.pending     => Colors.orange,
+    };
   }
 
   @override
@@ -228,6 +240,16 @@ class _MyPetsTabState extends ConsumerState<MyPetsTab> {
               itemCount: _pets.length,
               itemBuilder: (ctx, i) {
                 final p = _pets[i];
+                // A1 FIX: title is petName if set, otherwise capitalised
+                // type name — no raw interpolation that could render "null".
+                final title = p.petName ??
+                    '${p.petType.name[0].toUpperCase()}${p.petType.name.substring(1)}';
+                // A1 FIX: subtitle built from non-null parts list.
+                final subtitleParts = [
+                  p.petType.name,
+                  if (p.breed != null) p.breed!,
+                  if (p.vaccinationStatus) 'Vaccinated',
+                ];
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   shape: RoundedRectangleBorder(
@@ -239,14 +261,11 @@ class _MyPetsTabState extends ConsumerState<MyPetsTab> {
                       child: const Icon(Icons.pets,
                           color: AppTheme.primaryColor),
                     ),
-                    title: Text(
-                      p.petName ??
-                          '\${p.petType.name[0].toUpperCase()}\${p.petType.name.substring(1)}',
-                      style:
-                          const TextStyle(fontWeight: FontWeight.w500),
-                    ),
+                    title: Text(title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w500)),
                     subtitle: Text(
-                      p.breed != null ? p.breed! : p.petType.name,
+                      subtitleParts.join(' · '),
                       style: const TextStyle(fontSize: 12),
                     ),
                     trailing: Row(
@@ -264,8 +283,7 @@ class _MyPetsTabState extends ConsumerState<MyPetsTab> {
                                     .withValues(alpha: 0.3)),
                           ),
                           child: Text(
-                            p.status.name[0].toUpperCase() +
-                                p.status.name.substring(1),
+                            '${p.status.name[0].toUpperCase()}${p.status.name.substring(1)}',
                             style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../core/models/announcement_model.dart';
 import '../../../providers/auth_provider.dart';
 
@@ -11,10 +12,10 @@ class AnnouncementsTab extends ConsumerStatefulWidget {
 }
 
 class _AnnouncementsTabState extends ConsumerState<AnnouncementsTab> {
-  final _titleCtrl   = TextEditingController();
-  final _bodyCtrl    = TextEditingController();
-  String _audience   = 'all';
-  bool _sending      = false;
+  final _titleCtrl = TextEditingController();
+  final _bodyCtrl  = TextEditingController();
+  String _audience = 'all';
+  bool _sending    = false;
 
   @override
   void dispose() {
@@ -60,8 +61,10 @@ class _AnnouncementsTabState extends ConsumerState<AnnouncementsTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: \$e'),
-              backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -75,7 +78,7 @@ class _AnnouncementsTabState extends ConsumerState<AnnouncementsTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // ── Compose ───────────────────────────────────────────────────────
+        // ── Compose ──────────────────────────────────────────────────────
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -104,16 +107,22 @@ class _AnnouncementsTabState extends ConsumerState<AnnouncementsTab> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                // FIX: value: → initialValue:
                 DropdownButtonFormField<String>(
-                  value: _audience,
+                  initialValue: _audience,
                   decoration: const InputDecoration(
                     labelText: 'Audience',
                     prefixIcon: Icon(Icons.group_outlined),
                   ),
                   items: const [
-                    DropdownMenuItem(value: 'all',       child: Text('All')),
-                    DropdownMenuItem(value: 'residents', child: Text('Residents only')),
-                    DropdownMenuItem(value: 'security',  child: Text('Security staff only')),
+                    DropdownMenuItem(
+                        value: 'all', child: Text('All')),
+                    DropdownMenuItem(
+                        value: 'residents',
+                        child: Text('Residents only')),
+                    DropdownMenuItem(
+                        value: 'security',
+                        child: Text('Security staff only')),
                   ],
                   onChanged: (v) => setState(() => _audience = v!),
                 ),
@@ -137,7 +146,7 @@ class _AnnouncementsTabState extends ConsumerState<AnnouncementsTab> {
         ),
         const SizedBox(height: 20),
 
-        // ── Recent announcements ──────────────────────────────────────────
+        // ── Recent announcements ─────────────────────────────────────────
         const Text('Recent Announcements',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
@@ -156,20 +165,29 @@ class _AnnouncementsTabState extends ConsumerState<AnnouncementsTab> {
                 ),
               );
             }
+            // FIX: define timeStr from a.sentAt — was used but never
+            // declared in the original, causing a runtime/compile crash.
+            final fmt = DateFormat('dd/MM HH:mm');
             return Column(
               children: items.map((a) {
+                final timeStr = fmt.format(a.sentAt ?? DateTime.now());
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                      backgroundColor:
+                          Colors.blue.withValues(alpha: 0.1),
                       child: const Icon(Icons.campaign_outlined,
                           color: Colors.blue),
                     ),
                     title: Text(a.title,
-                        style: const TextStyle(fontWeight: FontWeight.w500)),
-                    subtitle: Text('\${a.body}\n\$timeStr · \${a.audience}',
-                        maxLines: 3, overflow: TextOverflow.ellipsis),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w500)),
+                    subtitle: Text(
+                      '${a.body}\n$timeStr · ${a.audience}',
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     isThreeLine: true,
                   ),
                 );

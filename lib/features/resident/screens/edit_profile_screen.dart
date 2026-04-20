@@ -12,7 +12,8 @@ class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
 
   @override
-  ConsumerState<EditProfileScreen> createState() => _EditProfileScreenState();
+  ConsumerState<EditProfileScreen> createState() =>
+      _EditProfileScreenState();
 }
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
@@ -32,18 +33,20 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   DateTime? _dlExpiry;
 
   List<OrganisationModel> _orgs = [];
-  bool _loading   = true;
-  bool _saving    = false;
+  bool _loading = true;
+  bool _saving  = false;
   String? _error;
 
   ResidentModel? _current;
 
   List<String> get _grades => _orgs
       .where((o) => o.id == _selectedOrgId)
-      .firstOrNull?.grades ?? [];
+      .firstOrNull
+      ?.grades ?? [];
   List<String> get _departments => _orgs
       .where((o) => o.id == _selectedOrgId)
-      .firstOrNull?.departments ?? [];
+      .firstOrNull
+      ?.departments ?? [];
 
   @override
   void initState() {
@@ -61,29 +64,37 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     if (mounted && resident != null) {
       setState(() {
-        _current        = resident;
-        _orgs           = orgs;
-        _nameCtrl.text  = resident.name;
-        _phoneCtrl.text = resident.phoneMobile;
-        _cnicCtrl.text  = resident.cnic ?? '';
-        _empNoCtrl.text = resident.employeeNumber ?? '';
-        _dlNoCtrl.text  = resident.drivingLicenseNumber ?? '';
-        _blockCtrl.text = resident.block ?? '';
+        _current         = resident;
+        _orgs            = orgs;
+        _nameCtrl.text   = resident.name;
+        _phoneCtrl.text  = resident.phoneMobile;
+        _cnicCtrl.text   = resident.cnic ?? '';
+        // B5 FIX: load stored employee number as-is — already formatted
+        // as XXX-00000 at write time so display is correct.
+        _empNoCtrl.text  = resident.employeeNumber ?? '';
+        _dlNoCtrl.text   = resident.drivingLicenseNumber ?? '';
+        _blockCtrl.text  = resident.block ?? '';
         _sectorCtrl.text = resident.sector ?? '';
-        _selectedOrgId  = resident.organisationId;
-        _selectedGrade  = resident.grade;
-        _selectedDept   = resident.department;
-        _dlExpiry       = resident.drivingLicenseExpiryDate != null
-            ? DateTime.tryParse(resident.drivingLicenseExpiryDate!) : null;
-        _loading        = false;
+        _selectedOrgId   = resident.organisationId;
+        _selectedGrade   = resident.grade;
+        _selectedDept    = resident.department;
+        // B3 FIX: load dob from resident document so it can be edited.
+        _dob = resident.dob != null
+            ? DateTime.tryParse(resident.dob!) : null;
+        _dlExpiry = resident.drivingLicenseExpiryDate != null
+            ? DateTime.tryParse(resident.drivingLicenseExpiryDate!)
+            : null;
+        _loading = false;
       });
     }
   }
 
   @override
   void dispose() {
-    for (final c in [_nameCtrl, _phoneCtrl, _cnicCtrl, _empNoCtrl,
-        _dlNoCtrl, _blockCtrl, _sectorCtrl]) { c.dispose(); }
+    for (final c in [
+      _nameCtrl, _phoneCtrl, _cnicCtrl, _empNoCtrl,
+      _dlNoCtrl, _blockCtrl, _sectorCtrl,
+    ]) { c.dispose(); }
     super.dispose();
   }
 
@@ -96,26 +107,29 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       final uid = ref.read(authStateProvider).valueOrNull?.uid;
       if (uid == null) throw Exception('Not logged in');
 
-      final empFormatted = _empNoCtrl.text.trim().isEmpty ? null
+      final empFormatted = _empNoCtrl.text.trim().isEmpty
+          ? null
           : Validators.formatEmployeeNumber(_empNoCtrl.text.trim());
 
       await fs.updateResident(uid, {
-        'name':                   _nameCtrl.text.trim(),
-        'phone_mobile':           Validators.cleanPhone(_phoneCtrl.text),
-        'cnic':                   Validators.cleanCnic(_cnicCtrl.text),
-        'employee_number':        empFormatted,
-        'organisation_id':        _selectedOrgId,
-        'grade':                  _selectedGrade,
-        'department':             _selectedDept,
-        'block':                  _blockCtrl.text.trim().isEmpty
+        'name':            _nameCtrl.text.trim(),
+        'phone_mobile':    Validators.cleanPhone(_phoneCtrl.text),
+        'cnic':            Validators.cleanCnic(_cnicCtrl.text),
+        'employee_number': empFormatted,
+        'organisation_id': _selectedOrgId,
+        'grade':           _selectedGrade,
+        'department':      _selectedDept,
+        'block': _blockCtrl.text.trim().isEmpty
             ? null : _blockCtrl.text.trim(),
-        'sector':                 _sectorCtrl.text.trim().isEmpty
+        'sector': _sectorCtrl.text.trim().isEmpty
             ? null : _sectorCtrl.text.trim(),
         'driving_license_number': _dlNoCtrl.text.trim().isEmpty
             ? null : _dlNoCtrl.text.trim(),
         'driving_license_expiry_date': _dlExpiry?.toIso8601String(),
+        // B3 FIX: include dob in the save payload — previously this field
+        // was loaded but never written back, so edits were silently lost.
         'date_of_birth': _dob?.toIso8601String(),
-        // Reset approval status — changes require re-approval
+        // Profile changes require re-approval
         'status':    ResidentStatus.pending.name,
         'is_active': false,
       });
@@ -156,12 +170,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           TextButton(
             onPressed: _saving ? null : _save,
             child: _saving
-                ? const SizedBox(width: 20, height: 20,
+                ? const SizedBox(
+                    width: 20, height: 20,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white))
                 : const Text('Save',
                     style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -172,7 +188,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Current status banner
+              // Status banner
               if (_current?.status != ResidentStatus.approved)
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -219,8 +235,37 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     prefixIcon: Icon(Icons.badge_outlined),
                     hintText: '13 digits no dashes',
                     counterText: ''),
-                validator: (v) => v == null || v.isEmpty
-                    ? null : Validators.cnic(v),
+                validator: (v) =>
+                    v == null || v.isEmpty ? null : Validators.cnic(v),
+              ),
+              const SizedBox(height: 16),
+              // B3 FIX: DOB picker is now shown in edit profile so the
+              // field can actually be updated — previously _dob was loaded
+              // but there was no UI to change it.
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _dob ?? DateTime(1985),
+                    firstDate: DateTime(1930),
+                    lastDate: DateTime.now()
+                        .subtract(const Duration(days: 6570)),
+                  );
+                  if (picked != null) setState(() => _dob = picked);
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                      labelText: 'Date of Birth',
+                      prefixIcon: Icon(Icons.cake_outlined)),
+                  child: Text(
+                    _dob != null
+                        ? '${_dob!.day.toString().padLeft(2, '0')}/'
+                          '${_dob!.month.toString().padLeft(2, '0')}/${_dob!.year}'
+                        : 'Select date (optional)',
+                    style: TextStyle(
+                        color: _dob != null ? null : Colors.grey),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -239,12 +284,16 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               _SectionHeader('Organisation'),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _selectedOrgId,
+                initialValue: _selectedOrgId,
                 decoration: const InputDecoration(
                     labelText: 'Organisation',
                     prefixIcon: Icon(Icons.business_outlined)),
-                items: _orgs.map((o) => DropdownMenuItem(
-                        value: o.id, child: Text(o.name))).toList(),
+                items: _orgs
+                    .map((o) => DropdownMenuItem(
+                          value: o.id,
+                          child: Text(o.name),
+                        ))
+                    .toList(),
                 onChanged: (v) => setState(() {
                   _selectedOrgId = v;
                   _selectedGrade = null;
@@ -254,28 +303,33 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               if (_selectedOrgId != null && _departments.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _selectedDept,
+                  initialValue: _selectedDept,
                   decoration: const InputDecoration(
                       labelText: 'Department',
                       prefixIcon: Icon(Icons.account_tree_outlined)),
-                  items: _departments.map((d) => DropdownMenuItem(
-                          value: d, child: Text(d))).toList(),
+                  items: _departments
+                      .map((d) =>
+                          DropdownMenuItem(value: d, child: Text(d)))
+                      .toList(),
                   onChanged: (v) => setState(() => _selectedDept = v),
                 ),
               ],
               if (_selectedOrgId != null && _grades.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _selectedGrade,
+                  initialValue: _selectedGrade,
                   decoration: const InputDecoration(
                       labelText: 'Grade',
                       prefixIcon: Icon(Icons.grade_outlined)),
-                  items: _grades.map((g) => DropdownMenuItem(
-                          value: g, child: Text(g))).toList(),
+                  items: _grades
+                      .map((g) =>
+                          DropdownMenuItem(value: g, child: Text(g)))
+                      .toList(),
                   onChanged: (v) => setState(() => _selectedGrade = v),
                 ),
               ],
               const SizedBox(height: 16),
+              // B5: format hint matches XXX-00000 spec
               TextFormField(
                 controller: _empNoCtrl,
                 textCapitalization: TextCapitalization.characters,
@@ -294,7 +348,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   child: TextFormField(
                     controller: _blockCtrl,
                     textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(labelText: 'Block'),
+                    decoration:
+                        const InputDecoration(labelText: 'Block'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -302,7 +357,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   child: TextFormField(
                     controller: _sectorCtrl,
                     textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(labelText: 'Sector'),
+                    decoration:
+                        const InputDecoration(labelText: 'Sector'),
                   ),
                 ),
               ]),
@@ -334,8 +390,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       prefixIcon: Icon(Icons.calendar_today_outlined)),
                   child: Text(
                     _dlExpiry != null
-                        ? '${_dlExpiry!.day.toString().padLeft(2,'0')}/'
-                          '${_dlExpiry!.month.toString().padLeft(2,'0')}/'
+                        ? '${_dlExpiry!.day.toString().padLeft(2, '0')}/'
+                          '${_dlExpiry!.month.toString().padLeft(2, '0')}/'
                           '${_dlExpiry!.year}'
                         : 'Select date',
                     style: TextStyle(
@@ -358,9 +414,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     const Icon(Icons.error_outline,
                         color: Colors.red, size: 18),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(_error!,
-                        style: const TextStyle(
-                            color: Colors.red, fontSize: 13))),
+                    Expanded(
+                        child: Text(_error!,
+                            style: const TextStyle(
+                                color: Colors.red, fontSize: 13))),
                   ]),
                 ),
               ],

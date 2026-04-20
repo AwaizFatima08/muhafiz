@@ -32,13 +32,13 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
   }
 
   Future<void> _showAddSheet() async {
-    final plateCtrl = TextEditingController();
-    final makeCtrl  = TextEditingController();
-    final modelCtrl = TextEditingController();
+    final plateCtrl  = TextEditingController();
+    final makeCtrl   = TextEditingController();
+    final modelCtrl  = TextEditingController();
     final colourCtrl = TextEditingController();
+    final yearCtrl   = TextEditingController();
     VehicleType vType = VehicleType.car;
     File? regCardFile;
-    final yearCtrl = TextEditingController();
     bool saving = false;
 
     await showModalBottomSheet(
@@ -49,8 +49,7 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
-              20, 20, 20,
-              MediaQuery.of(ctx).viewInsets.bottom + 20),
+              20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -67,14 +66,14 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<VehicleType>(
-                value: vType,
+                initialValue: vType,
                 decoration:
                     const InputDecoration(labelText: 'Vehicle Type'),
                 items: VehicleType.values
                     .map((t) => DropdownMenuItem(
                           value: t,
-                          child: Text(t.name[0].toUpperCase() +
-                              t.name.substring(1)),
+                          child: Text(
+                              '${t.name[0].toUpperCase()}${t.name.substring(1)}'),
                         ))
                     .toList(),
                 onChanged: (v) => setSheet(() => vType = v!),
@@ -100,15 +99,27 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
               const SizedBox(height: 12),
               TextField(
                 controller: colourCtrl,
-                decoration: const InputDecoration(labelText: 'Colour'),
+                decoration:
+                    const InputDecoration(labelText: 'Colour'),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: yearCtrl,
-                keyboardType: TextInputType.number,
+// E4 FIX: year of manufacture as dropdown (1970–current year)
+              DropdownButtonFormField<int>(
+                initialValue: int.tryParse(yearCtrl.text),
                 decoration: const InputDecoration(
-                    labelText: 'Year of Manufacture',
-                    hintText: '2020'),
+                    labelText: 'Year of Manufacture'),
+                hint: const Text('Select year'),
+                items: List.generate(
+                  DateTime.now().year - 1970 + 1,
+                  (i) {
+                    final y = DateTime.now().year - i;
+                    return DropdownMenuItem(
+                        value: y, child: Text(y.toString()));
+                  },
+                ),
+                onChanged: (v) {
+                  if (v != null) yearCtrl.text = v.toString();
+                },
               ),
               const SizedBox(height: 16),
               PhotoUploadWidget(
@@ -127,49 +138,56 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: saving ? null : () async {
-                      if (plateCtrl.text.trim().isEmpty) return;
-                      if (regCardFile == null) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(
-                          const SnackBar(content: Text(
-                            'Registration card photo is required')),
-                        );
-                        return;
-                      }
-                      setSheet(() => saving = true);
-                      final fs = ref.read(firestoreServiceProvider);
-                      final storage = ref.read(storageServiceProvider);
-                      final vehicle = VehicleModel(
-                        id: '',
-                        residentId: widget.residentId,
-                        vehicleRegistrationNumber:
-                            plateCtrl.text.trim().toUpperCase(),
-                        make: makeCtrl.text.trim().isEmpty
-                            ? null : makeCtrl.text.trim(),
-                        model: modelCtrl.text.trim().isEmpty
-                            ? null : modelCtrl.text.trim(),
-                        colour: colourCtrl.text.trim().isEmpty
-                            ? null : colourCtrl.text.trim(),
-                        vehicleType: vType,
-                        isActive: true,
-                        status: 'pending',
-                        registeredBy: widget.residentId,
-                        registeredAt: DateTime.now(),
-                      );
-                      final vehicleId = await fs.createVehicle(vehicle);
-                      if (regCardFile != null) {
-                        final url = await storage
-                            .uploadVehicleRegCard(vehicleId, regCardFile!);
-                        if (url != null) {
-                          await fs.updateVehicle(vehicleId,
-                              {'vehicle_registration_card_photo_url': url});
-                        }
-                      }
-                      Navigator.pop(ctx);
-                      _load();
-                    },
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            if (plateCtrl.text.trim().isEmpty) return;
+                            if (regCardFile == null) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Registration card photo is required')),
+                              );
+                              return;
+                            }
+                            setSheet(() => saving = true);
+                            final fs = ref.read(firestoreServiceProvider);
+                            final storage =
+                                ref.read(storageServiceProvider);
+                            final vehicle = VehicleModel(
+                              id: '',
+                              residentId: widget.residentId,
+                              vehicleRegistrationNumber:
+                                  plateCtrl.text.trim().toUpperCase(),
+                              make: makeCtrl.text.trim().isEmpty
+                                  ? null : makeCtrl.text.trim(),
+                              model: modelCtrl.text.trim().isEmpty
+                                  ? null : modelCtrl.text.trim(),
+                              colour: colourCtrl.text.trim().isEmpty
+                                  ? null : colourCtrl.text.trim(),
+                              vehicleType: vType,
+                              isActive: true,
+                              status: 'pending',
+                              registeredBy: widget.residentId,
+                              registeredAt: DateTime.now(),
+                            );
+                            final vehicleId =
+                                await fs.createVehicle(vehicle);
+                            final url = await storage
+                                .uploadVehicleRegCard(
+                                    vehicleId, regCardFile!);
+                            if (url != null) {
+                              await fs.updateVehicle(vehicleId, {
+                                'vehicle_registration_card_photo_url': url,
+                              });
+                            }
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            _load();
+                          },
                     child: saving
-                        ? const SizedBox(height: 20, width: 20,
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white))
                         : const Text('Save'),
@@ -188,8 +206,8 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Deactivate vehicle?'),
-        content:
-            const Text('This vehicle will no longer be tracked at the gate.'),
+        content: const Text(
+            'This vehicle will no longer be tracked at the gate.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -237,6 +255,12 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
               itemCount: _vehicles.length,
               itemBuilder: (ctx, i) {
                 final v = _vehicles[i];
+                final subtitleParts = [
+                  '${v.vehicleType.name[0].toUpperCase()}${v.vehicleType.name.substring(1)}',
+                  if (v.make != null) v.make!,
+                  if (v.model != null) v.model!,
+                  if (v.colour != null) v.colour!,
+                ];
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   shape: RoundedRectangleBorder(
@@ -253,10 +277,7 @@ class _MyVehiclesTabState extends ConsumerState<MyVehiclesTab> {
                             fontWeight: FontWeight.w500,
                             letterSpacing: 1)),
                     subtitle: Text(
-                      '\${v.vehicleType.name[0].toUpperCase()}\${v.vehicleType.name.substring(1)}'
-                      '\${v.make != null ? " • \${v.make}" : ""}'
-                      '\${v.model != null ? " \${v.model}" : ""}'
-                      '\${v.colour != null ? " • \${v.colour}" : ""}',
+                      subtitleParts.join(' · '),
                       style: const TextStyle(fontSize: 12),
                     ),
                     trailing: Row(
@@ -291,18 +312,21 @@ class _StatusBadge extends StatelessWidget {
       'underReview' => Colors.blue,
       'rejected'    => Colors.red,
       'cancelled'   => Colors.grey,
-      _             => Colors.orange, // pending + fallback
+      _             => Colors.orange,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color, width: 1),
       ),
       child: Text(
         status,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+        style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w600),
       ),
     );
   }

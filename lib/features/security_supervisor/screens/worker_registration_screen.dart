@@ -7,19 +7,25 @@ import 'steps/step2_employment_info.dart';
 import 'steps/step3_police_verification.dart';
 
 class WorkerRegistrationScreen extends ConsumerWidget {
-  const WorkerRegistrationScreen({super.key});
+  // D2 FIX: optional pendingRequestId — when set, step1 pre-loads data
+  // from a resident-initiated registration_request so the clerk only
+  // needs to complete document verification (steps 2 & 3).
+  final String? pendingRequestId;
+  const WorkerRegistrationScreen({super.key, this.pendingRequestId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final formState = ref.watch(registrationFormProvider);
-    final notifier = ref.read(registrationFormProvider.notifier);
+    final notifier  = ref.read(registrationFormProvider.notifier);
 
     final steps = ['Personal Info', 'Employment', 'Police Verification'];
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Register Worker'),
+        title: Text(pendingRequestId != null
+            ? 'Complete Worker Registration'
+            : 'Register Worker'),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -43,7 +49,8 @@ class WorkerRegistrationScreen extends ConsumerWidget {
                       Navigator.pop(context);
                     },
                     child: const Text('Discard',
-                        style: TextStyle(color: AppTheme.errorColor)),
+                        style:
+                            TextStyle(color: AppTheme.errorColor)),
                   ),
                 ],
               ),
@@ -59,7 +66,7 @@ class WorkerRegistrationScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Row(
               children: List.generate(steps.length, (index) {
-                final isActive = index == formState.currentStep;
+                final isActive    = index == formState.currentStep;
                 final isCompleted = index < formState.currentStep;
                 return Expanded(
                   child: Row(
@@ -76,20 +83,21 @@ class WorkerRegistrationScreen extends ConsumerWidget {
                       Column(
                         children: [
                           Container(
-                            width: 32,
-                            height: 32,
+                            width: 32, height: 32,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: isCompleted
                                   ? Colors.white
                                   : isActive
                                       ? Colors.white
-                                      : Colors.white.withValues(alpha: 0.3),
+                                      : Colors.white
+                                          .withValues(alpha: 0.3),
                             ),
                             child: Center(
                               child: isCompleted
                                   ? Icon(Icons.check,
-                                      size: 18, color: AppTheme.primaryColor)
+                                      size: 18,
+                                      color: AppTheme.primaryColor)
                                   : Text(
                                       '${index + 1}',
                                       style: TextStyle(
@@ -109,7 +117,8 @@ class WorkerRegistrationScreen extends ConsumerWidget {
                               fontSize: 10,
                               color: isActive || isCompleted
                                   ? Colors.white
-                                  : Colors.white.withValues(alpha: 0.6),
+                                  : Colors.white
+                                      .withValues(alpha: 0.6),
                               fontWeight: isActive
                                   ? FontWeight.bold
                                   : FontWeight.normal,
@@ -117,7 +126,8 @@ class WorkerRegistrationScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      if (index < steps.length - 1) const Expanded(child: SizedBox()),
+                      if (index < steps.length - 1)
+                        const Expanded(child: SizedBox()),
                     ],
                   ),
                 );
@@ -129,7 +139,8 @@ class WorkerRegistrationScreen extends ConsumerWidget {
           if (formState.errorMessage != null)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 10),
               color: AppTheme.errorColor.withValues(alpha: 0.1),
               child: Row(
                 children: [
@@ -147,14 +158,19 @@ class WorkerRegistrationScreen extends ConsumerWidget {
               ),
             ),
 
-          // Step content
+          // D2 FIX: pass pendingRequestId to Step1 so it can pre-load
+          // resident-initiated request data when clerk opens the form.
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
               child: switch (formState.currentStep) {
-                0 => const Step1PersonalInfo(key: ValueKey('step1')),
-                1 => const Step2EmploymentInfo(key: ValueKey('step2')),
-                2 => const Step3PoliceVerification(key: ValueKey('step3')),
+                0 => Step1PersonalInfo(
+                    key: const ValueKey('step1'),
+                    pendingRequestId: pendingRequestId),
+                1 => const Step2EmploymentInfo(
+                    key: ValueKey('step2')),
+                2 => const Step3PoliceVerification(
+                    key: ValueKey('step3')),
                 _ => const SizedBox.shrink(),
               },
             ),

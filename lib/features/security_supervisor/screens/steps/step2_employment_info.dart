@@ -8,43 +8,78 @@ class Step2EmploymentInfo extends ConsumerStatefulWidget {
   const Step2EmploymentInfo({super.key});
 
   @override
-  ConsumerState<Step2EmploymentInfo> createState() => _Step2EmploymentInfoState();
+  ConsumerState<Step2EmploymentInfo> createState() =>
+      _Step2EmploymentInfoState();
 }
 
-class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
-  final _formKey = GlobalKey<FormState>();
+class _Step2EmploymentInfoState
+    extends ConsumerState<Step2EmploymentInfo> {
+  final _formKey        = GlobalKey<FormState>();
   final _houseController = TextEditingController();
-  final _arrivalController = TextEditingController();
-  String? _selectedEmployerId;
-  bool _loadingEmployers = true;
+
+  // A2 FIX: removed dead _arrivalController — never used in original.
+  String? _selectedResidentId;
+  bool _loadingResidents = true;
+
   String? _arrivalFrom;
   String? _arrivalTo;
-  static final List<String> _timeSlots = List.generate(48,
-    (i) => "${(i ~/ 2).toString().padLeft(2, '0')}:${i.isOdd ? '30' : '00'}");
-  List<Map<String, dynamic>> _employers = [];
+
+  // 30-minute time slots for the full 24-hour day
+  static final List<String> _timeSlots = List.generate(
+    48,
+    (i) =>
+        '${(i ~/ 2).toString().padLeft(2, '0')}:${i.isOdd ? '30' : '00'}',
+  );
+
+  // A2 FIX: each entry holds id, name, and houseNumber (not .unit which
+  // doesn't exist on ResidentModel).
+  List<Map<String, String>> _residents = [];
 
   @override
   void initState() {
     super.initState();
     final state = ref.read(registrationFormProvider);
     _houseController.text = state.houseNumber;
-    // arrivalWindow stored as 'HH:MM-HH:MM'
+
+    // Restore arrival window stored as 'HH:MM-HH:MM'
     final parts = state.arrivalWindow.split('-');
-    _arrivalFrom = parts.isNotEmpty && parts[0].isNotEmpty ? parts[0] : null;
-    _arrivalTo   = parts.length > 1 && parts[1].isNotEmpty ? parts[1] : null;
-    _selectedEmployerId = state.residentId.isEmpty ? null : state.residentId;
-    _loadEmployers();
+    _arrivalFrom =
+        parts.isNotEmpty && parts[0].isNotEmpty ? parts[0] : null;
+    _arrivalTo =
+        parts.length > 1 && parts[1].isNotEmpty ? parts[1] : null;
+    _selectedResidentId =
+        state.residentId.isEmpty ? null : state.residentId;
+
+    _loadResidents();
   }
 
-  Future<void> _loadEmployers() async {
-    final firestoreService = ref.read(firestoreServiceProvider);
-    final employers = await firestoreService.watchActiveResidents().first;
+  Future<void> _loadResidents() async {
+    final fs = ref.read(firestoreServiceProvider);
+    // A2 FIX: use watchActiveResidents().first — correct collection.
+    // Map to id + name + houseNumber (houseNumber is the correct field,
+    // ResidentModel has no .unit property).
+    final residents = await fs.watchActiveResidents().first;
     if (mounted) {
       setState(() {
-        _employers = employers
-            .map((e) => {'id': e.id, 'name': e.name, 'unit': e.unit ?? ''})
+        _residents = residents
+            .map((r) => {
+                  'id':    r.id,
+                  'name':  r.name,
+                  'house': r.houseNumber,
+                })
             .toList();
-        _loadingEmployers = false;
+        _loadingResidents = false;
+
+        // Auto-fill house number if a resident was already selected
+        // (e.g. navigating back from step 3).
+        if (_selectedResidentId != null) {
+          final match = _residents
+              .where((r) => r['id'] == _selectedResidentId)
+              .firstOrNull;
+          if (match != null && _houseController.text.isEmpty) {
+            _houseController.text = match['house'] ?? '';
+          }
+        }
       });
     }
   }
@@ -52,18 +87,32 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
   @override
   void dispose() {
     _houseController.dispose();
-    _arrivalController.dispose();
     super.dispose();
+  }
+
+  void _onResidentChanged(String? residentId) {
+    setState(() {
+      _selectedResidentId = residentId;
+      // A2 FIX: auto-fill house number when a resident is selected so the
+      // clerk doesn't have to type it manually (avoids house/resident mismatch).
+      if (residentId != null) {
+        final match =
+            _residents.where((r) => r['id'] == residentId).firstOrNull;
+        if (match != null) {
+          _houseController.text = match['house'] ?? '';
+        }
+      }
+    });
   }
 
   void _proceed() {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedEmployerId == null) return;
+    if (_selectedResidentId == null) return;
 
     final notifier = ref.read(registrationFormProvider.notifier);
     notifier.updateStep2(
-      residentId: _selectedEmployerId,
-      houseNumber: _houseController.text.trim(),
+      residentId:    _selectedResidentId,
+      houseNumber:   _houseController.text.trim(),
       arrivalWindow: '${_arrivalFrom ?? ''}-${_arrivalTo ?? ''}',
     );
     notifier.nextStep();
@@ -80,36 +129,41 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Employment Details',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'Employment Details',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 20),
 
-            // Employer selector
-            _loadingEmployers
+            // Resident / Employer selector
+            _loadingResidents
                 ? const Center(child: CircularProgressIndicator())
                 : DropdownButtonFormField<String>(
-                    value: _selectedEmployerId,
+                    initialValue: _selectedResidentId,
                     decoration: const InputDecoration(
-                      labelText: 'Primary Employer *',
+                      // A2 FIX: label updated to "Resident / Employer"
+                      // — matches the architecture rule that residents
+                      //   collection replaces employers everywhere.
+                      labelText: 'Resident / Employer *',
                       prefixIcon: Icon(Icons.home_outlined),
                     ),
-                    hint: const Text('Select employer'),
-                    items: _employers.map((e) {
+                    hint: const Text('Select resident'),
+                    items: _residents.map((r) {
                       return DropdownMenuItem<String>(
-                        value: e['id'],
-                        child: Text('${e["name"]} — ${e["unit"]}'),
+                        value: r['id'],
+                        child: Text('${r["name"]} — ${r["house"]}'),
                       );
                     }).toList(),
-                    onChanged: (v) => setState(() => _selectedEmployerId = v),
+                    onChanged: _onResidentChanged,
                     validator: (v) =>
-                        v == null ? 'Please select an employer' : null,
+                        v == null ? 'Please select a resident' : null,
                   ),
             const SizedBox(height: 16),
 
-            // House number
+            // House number — auto-filled when resident selected, editable
             TextFormField(
               controller: _houseController,
               textCapitalization: TextCapitalization.characters,
@@ -117,6 +171,7 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
                 labelText: 'House Number *',
                 prefixIcon: Icon(Icons.house_outlined),
                 hintText: 'e.g. A-123',
+                helperText: 'Auto-filled from selected resident',
               ),
               validator: (v) =>
                   Validators.required(v, fieldName: 'House number'),
@@ -127,13 +182,17 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
             Row(children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _arrivalFrom,
+                  initialValue: _arrivalFrom,
                   decoration: const InputDecoration(
                     labelText: 'From *',
                     prefixIcon: Icon(Icons.access_time_outlined),
                   ),
-                  items: _timeSlots.map((t) =>
-                      DropdownMenuItem(value: t, child: Text(t))).toList(),
+                  items: _timeSlots
+                      .map((t) => DropdownMenuItem(
+                            value: t,
+                            child: Text(t),
+                          ))
+                      .toList(),
                   onChanged: (v) => setState(() => _arrivalFrom = v),
                   validator: (v) =>
                       v == null ? 'Select from time' : null,
@@ -142,13 +201,17 @@ class _Step2EmploymentInfoState extends ConsumerState<Step2EmploymentInfo> {
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _arrivalTo,
+                  initialValue: _arrivalTo,
                   decoration: const InputDecoration(
                     labelText: 'To *',
                     prefixIcon: Icon(Icons.access_time_outlined),
                   ),
-                  items: _timeSlots.map((t) =>
-                      DropdownMenuItem(value: t, child: Text(t))).toList(),
+                  items: _timeSlots
+                      .map((t) => DropdownMenuItem(
+                            value: t,
+                            child: Text(t),
+                          ))
+                      .toList(),
                   onChanged: (v) => setState(() => _arrivalTo = v),
                   validator: (v) =>
                       v == null ? 'Select to time' : null,

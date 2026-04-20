@@ -75,14 +75,17 @@ class _WorkerValidations extends StatelessWidget {
         }
         final requests = snap.data ?? [];
         if (requests.isEmpty) {
-          return const Center(child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
-              SizedBox(height: 12),
-              Text('No pending worker requests'),
-            ],
-          ));
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_outline,
+                    size: 64, color: Colors.green),
+                SizedBox(height: 12),
+                Text('No pending worker requests'),
+              ],
+            ),
+          );
         }
         return ListView.builder(
           padding: const EdgeInsets.all(16),
@@ -91,24 +94,30 @@ class _WorkerValidations extends StatelessWidget {
             final r    = requests[i];
             final name = r.employeeData['worker_name'] ??
                 r.employeeData['name'] ?? 'Unknown';
+            // A1 FIX: extract fields to named variables before building
+            // the subtitle string — prevents raw-literal bugs if fields
+            // are absent and makes null-fallbacks explicit.
+            final cnic = r.employeeData['cnic'] as String? ?? '---';
+            final type = r.employeeData['worker_type'] as String? ?? '---';
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: Colors.orange.withValues(alpha: 0.1),
-                  child: const Icon(Icons.person_outline, color: Colors.orange),
+                  child:
+                      const Icon(Icons.person_outline, color: Colors.orange),
                 ),
                 title: Text(name,
                     style: const TextStyle(fontWeight: FontWeight.w500)),
-                subtitle: Text(
-                    (r.employeeData['cnic'] ?? '---') + ' · ' + (r.employeeData['worker_type'] ?? '---')),
+                subtitle: Text('$cnic · $type'),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   IconButton(
                     icon: const Icon(Icons.check_circle, color: Colors.green),
                     tooltip: 'Validate — send to manager',
                     onPressed: () => fs.updateRegistrationRequest(r.id, {
                       'status': RegistrationRequestStatus.underReview.name,
-                      'validated_by': ref.read(authStateProvider).valueOrNull?.uid,
+                      'validated_by':
+                          ref.read(authStateProvider).valueOrNull?.uid,
                     }),
                   ),
                   IconButton(
@@ -144,32 +153,43 @@ class _ResidentValidations extends StatelessWidget {
         }
         final residents = snap.data ?? [];
         if (residents.isEmpty) {
-          return const Center(child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
-              SizedBox(height: 12),
-              Text('No pending resident requests'),
-            ],
-          ));
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_outline,
+                    size: 64, color: Colors.green),
+                SizedBox(height: 12),
+                Text('No pending resident requests'),
+              ],
+            ),
+          );
         }
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: residents.length,
           itemBuilder: (_, i) {
             final r = residents[i];
+            // A1 FIX: build subtitle from named parts so interpolation
+            // is clean and null-safe.
+            final subtitleParts = [
+              'House: ${r.houseNumber}',
+              if (r.phoneMobile.isNotEmpty) r.phoneMobile,
+            ];
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: Colors.teal.withValues(alpha: 0.1),
-                  child: Text(r.name.isNotEmpty ? r.name[0].toUpperCase() : '?',
-                      style: const TextStyle(
-                          color: Colors.teal, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    r.name.isNotEmpty ? r.name[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                        color: Colors.teal, fontWeight: FontWeight.bold),
+                  ),
                 ),
                 title: Text(r.name,
                     style: const TextStyle(fontWeight: FontWeight.w500)),
-                subtitle: Text('House: \${r.houseNumber} · \${r.phoneMobile}'),
+                subtitle: Text(subtitleParts.join(' · ')),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   IconButton(
                     icon: const Icon(Icons.check_circle, color: Colors.green),
@@ -180,6 +200,7 @@ class _ResidentValidations extends StatelessWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.cancel, color: Colors.red),
+                    tooltip: 'Reject',
                     onPressed: () => fs.updateResident(r.id, {
                       'status': ResidentStatus.suspended.name,
                       'is_active': false,
@@ -211,20 +232,30 @@ class _VehicleValidations extends StatelessWidget {
         }
         final vehicles = snap.data ?? [];
         if (vehicles.isEmpty) {
-          return const Center(child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
-              SizedBox(height: 12),
-              Text('No pending vehicle requests'),
-            ],
-          ));
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_outline,
+                    size: 64, color: Colors.green),
+                SizedBox(height: 12),
+                Text('No pending vehicle requests'),
+              ],
+            ),
+          );
         }
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: vehicles.length,
           itemBuilder: (_, i) {
             final v = vehicles[i];
+            // A1 FIX: build subtitle from a List to avoid null-interpolation
+            // producing literal "null" strings in the UI.
+            final subtitleParts = [
+              v.vehicleType.name,
+              if (v.make != null) v.make!,
+              if (v.colour != null) v.colour!,
+            ];
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
@@ -236,24 +267,19 @@ class _VehicleValidations extends StatelessWidget {
                 title: Text(v.vehicleRegistrationNumber,
                     style: const TextStyle(
                         fontWeight: FontWeight.w500, letterSpacing: 1)),
-                subtitle: Text(
-                  '\${v.vehicleType.name}'
-                  '\${v.make != null ? " · \${v.make}" : ""}'
-                  '\${v.colour != null ? " · \${v.colour}" : ""}',
-                ),
+                subtitle: Text(subtitleParts.join(' · ')),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   IconButton(
                     icon: const Icon(Icons.check_circle, color: Colors.green),
                     tooltip: 'Validate — send to manager',
-                    onPressed: () => fs.updateVehicle(v.id, {
-                      'status': 'underReview',
-                    }),
+                    onPressed: () =>
+                        fs.updateVehicle(v.id, {'status': 'underReview'}),
                   ),
                   IconButton(
                     icon: const Icon(Icons.cancel, color: Colors.red),
-                    onPressed: () => fs.updateVehicle(v.id, {
-                      'status': 'rejected',
-                    }),
+                    tooltip: 'Reject',
+                    onPressed: () =>
+                        fs.updateVehicle(v.id, {'status': 'rejected'}),
                   ),
                 ]),
               ),
@@ -281,20 +307,31 @@ class _PetValidations extends StatelessWidget {
         }
         final pets = snap.data ?? [];
         if (pets.isEmpty) {
-          return const Center(child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
-              SizedBox(height: 12),
-              Text('No pending pet requests'),
-            ],
-          ));
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_outline,
+                    size: 64, color: Colors.green),
+                SizedBox(height: 12),
+                Text('No pending pet requests'),
+              ],
+            ),
+          );
         }
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: pets.length,
           itemBuilder: (_, i) {
             final p = pets[i];
+            // A1 FIX: build title and subtitle from named parts.
+            final title = p.petName ??
+                '${p.petType.name[0].toUpperCase()}${p.petType.name.substring(1)}';
+            final subtitleParts = [
+              p.petType.name,
+              if (p.breed != null) p.breed!,
+              if (p.vaccinationStatus) 'Vaccinated',
+            ];
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
@@ -302,26 +339,19 @@ class _PetValidations extends StatelessWidget {
                   backgroundColor: Colors.green.withValues(alpha: 0.1),
                   child: const Icon(Icons.pets, color: Colors.green),
                 ),
-                title: Text(
-                  p.petName ??
-                      '\${p.petType.name[0].toUpperCase()}\${p.petType.name.substring(1)}',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                subtitle: Text(
-                  '\${p.petType.name}'
-                  '\${p.breed != null ? " · \${p.breed}" : ""}'
-                  '\${p.vaccinationStatus ? " · Vaccinated" : ""}',
-                ),
+                title: Text(title,
+                    style: const TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: Text(subtitleParts.join(' · ')),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   IconButton(
                     icon: const Icon(Icons.check_circle, color: Colors.green),
                     tooltip: 'Validate — send to manager',
-                    onPressed: () => fs.updatePet(p.id, {
-                      'status': 'underReview',
-                    }),
+                    onPressed: () =>
+                        fs.updatePet(p.id, {'status': 'underReview'}),
                   ),
                   IconButton(
                     icon: const Icon(Icons.cancel, color: Colors.red),
+                    tooltip: 'Reject',
                     onPressed: () => fs.updatePet(p.id, {
                       'status': PetStatus.rejected.name,
                     }),

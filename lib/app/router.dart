@@ -22,7 +22,7 @@ import '../features/security_manager/screens/reports_screen.dart';
 import '../core/enums/app_enums.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  final authState      = ref.watch(authStateProvider);
   final userModelAsync = ref.watch(currentUserModelProvider);
 
   return GoRouter(
@@ -30,8 +30,8 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isLoadingAuth = authState.isLoading;
       final isLoadingUser = userModelAsync.isLoading;
-      final isLoggedIn = authState.valueOrNull != null;
-      final isLoginRoute = state.matchedLocation == '/login';
+      final isLoggedIn    = authState.valueOrNull != null;
+      final isLoginRoute  = state.matchedLocation == '/login';
 
       // Wait for both streams to settle
       if (isLoadingAuth || (isLoggedIn && isLoadingUser)) return null;
@@ -46,7 +46,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Logged in but on login screen — send to correct dashboard
       if (isLoginRoute) {
         final user = userModelAsync.valueOrNull;
-        if (user == null) return null; // user doc missing, stay put
+        if (user == null) return null;
         switch (user.role) {
           case UserRole.securityManager:
           case UserRole.superAdmin:
@@ -70,15 +70,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LoginScreen(),
       ),
 
-      // ── Security Manager ───────────────────────────────────────────────
-      // SecurityManagerDashboard is a home screen with 4 tabs:
-      // Overview / Approvals / Terminations / Blacklist
+      // ── Security Manager ─────────────────────────────────────────────
       GoRoute(
         path: '/manager',
         builder: (context, state) => const SecurityManagerDashboard(),
       ),
 
-      // ── Security Supervisor ────────────────────────────────────────────
+      // ── Security Supervisor ──────────────────────────────────────────
       GoRoute(
         path: '/supervisor',
         builder: (context, state) => const SupervisorDashboard(),
@@ -88,7 +86,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const WorkerRegistrationScreen(),
       ),
 
-      // ── Gate Clerk ─────────────────────────────────────────────────────
+      // ── Gate Clerk ───────────────────────────────────────────────────
       GoRoute(
         path: '/clerk',
         builder: (context, state) => const ClerkDashboard(),
@@ -110,10 +108,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const GateLogScreen(),
       ),
       GoRoute(
-        path: '/reports',
-        builder: (context, state) => const ReportsScreen(),
-      ),
-      GoRoute(
         path: '/clerk/guest-entry',
         builder: (context, state) => const GuestEntryScreen(),
       ),
@@ -125,7 +119,39 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/clerk/vehicle-log',
         builder: (context, state) => const VehicleLogScreen(),
       ),
-      // ── Resident ───────────────────────────────────────────────────────
+      // D2 FIX: clerk pickup route for resident-initiated worker requests.
+      // Resident submits via /resident/register-worker which writes to
+      // registration_requests with status=pending. Clerk opens
+      // WorkerRegistrationScreen (the full 3-step form) pre-seeded with
+      // the request data so they can complete document verification.
+      // The requestId is passed as a query parameter so step1 can load
+      // the existing data instead of starting blank.
+      GoRoute(
+        path: '/clerk/complete-worker-request',
+        builder: (context, state) {
+          final requestId =
+              state.uri.queryParameters['requestId'] ?? '';
+          return WorkerRegistrationScreen(
+              pendingRequestId: requestId.isEmpty ? null : requestId);
+        },
+      ),
+      // Same route for supervisor
+      GoRoute(
+        path: '/supervisor/complete-worker-request',
+        builder: (context, state) {
+          final requestId =
+              state.uri.queryParameters['requestId'] ?? '';
+          return WorkerRegistrationScreen(
+              pendingRequestId: requestId.isEmpty ? null : requestId);
+        },
+      ),
+
+      GoRoute(
+        path: '/reports',
+        builder: (context, state) => const ReportsScreen(),
+      ),
+
+      // ── Resident ─────────────────────────────────────────────────────
       GoRoute(
         path: '/resident',
         builder: (context, state) => const ResidentDashboard(),

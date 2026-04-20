@@ -12,10 +12,10 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _formKey            = GlobalKey<FormState>();
+  final _emailController    = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
+  bool _isLoading       = false;
   bool _obscurePassword = true;
   String? _errorMessage;
 
@@ -25,7 +25,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _passwordController.dispose();
     super.dispose();
   }
-
 
   Future<void> _forgotPassword() async {
     final email = _emailController.text.trim();
@@ -50,10 +49,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    setState(() { _isLoading = true; _errorMessage = null; });
     try {
       final authService = ref.read(authServiceProvider);
       final user = await authService.signIn(
@@ -66,7 +62,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       if (!user.isActive) {
         await authService.signOut();
-        setState(() => _errorMessage = 'Account is inactive. Contact admin.');
+        setState(() =>
+            _errorMessage = 'Account is inactive. Contact admin.');
         return;
       }
       // Router redirect handles navigation based on role
@@ -74,12 +71,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         setState(() {
           _errorMessage = e.toString();
-          _isLoading = false;
+          _isLoading    = false;
         });
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -94,40 +90,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               children: [
                 const SizedBox(height: 40),
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 80, height: 80,
                   decoration: BoxDecoration(
                     color: AppTheme.primaryColor,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Icon(
-                    Icons.shield_outlined,
-                    color: Colors.white,
-                    size: 44,
-                  ),
+                  child: const Icon(Icons.shield_outlined,
+                      color: Colors.white, size: 44),
                 ),
                 const SizedBox(height: 20),
                 Text(
                   'Muhafiz',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                      ),
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium
+                      ?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor),
                 ),
                 Text(
-                  'Township Staff Gate Management',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey,
-                      ),
+                  'Secure Township Staff Management',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: Colors.grey),
                 ),
                 const SizedBox(height: 48),
                 Form(
                   key: _formKey,
                   child: Column(
                     children: [
+                      // C7 FIX: textInputAction.next moves focus to
+                      // password field when Enter is pressed on email.
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
                           labelText: 'Email',
                           prefixIcon: Icon(Icons.email_outlined),
@@ -143,21 +141,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         },
                       ),
                       const SizedBox(height: 16),
+                      // C7 FIX: textInputAction.done + onFieldSubmitted
+                      // triggers sign-in when Enter pressed on password.
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _signIn(),
                         decoration: InputDecoration(
                           labelText: 'Password',
                           prefixIcon: const Icon(Icons.lock_outlined),
                           suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
-                            ),
-                            onPressed: () => setState(
-                              () => _obscurePassword = !_obscurePassword,
-                            ),
+                            icon: Icon(_obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined),
+                            onPressed: () => setState(() =>
+                                _obscurePassword = !_obscurePassword),
                           ),
                         ),
                         validator: (value) {
@@ -183,38 +182,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppTheme.errorColor.withValues(alpha: 0.1),
+                            color: AppTheme.errorColor
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: AppTheme.errorColor.withValues(alpha: 0.3),
+                              color: AppTheme.errorColor
+                                  .withValues(alpha: 0.3),
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: AppTheme.errorColor,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _errorMessage!,
+                          child: Row(children: [
+                            const Icon(Icons.error_outline,
+                                color: AppTheme.errorColor, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(_errorMessage!,
                                   style: const TextStyle(
-                                    color: AppTheme.errorColor,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                                      color: AppTheme.errorColor,
+                                      fontSize: 13)),
+                            ),
+                          ]),
                         ),
                       const SizedBox(height: 24),
                       _isLoading
                           ? const CircularProgressIndicator()
-                          : ElevatedButton(
-                              onPressed: _signIn,
-                              child: const Text('Sign In'),
+                          : SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _signIn,
+                                child: const Text('Sign In'),
+                              ),
                             ),
                     ],
                   ),
@@ -226,10 +222,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Muhafiz v2.0.0',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey,
-                      ),
+                  'Muhafiz v2.0.0 · Powered by Homi Labs',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: Colors.grey),
                 ),
               ],
             ),

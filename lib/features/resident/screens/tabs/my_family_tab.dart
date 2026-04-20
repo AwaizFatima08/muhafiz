@@ -30,18 +30,26 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
     if (mounted) setState(() { _members = members; _loading = false; });
   }
 
+  // A1 FIX: single helper so DOB formatting is consistent between the
+  // list subtitle and the bottom sheet picker display.
+  String _formatDob(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/'
+      '${d.month.toString().padLeft(2, '0')}/'
+      '${d.year}';
+
   Future<void> _showAddEditSheet([FamilyMemberModel? existing]) async {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final dlNoCtrl  = TextEditingController(
         text: existing?.drivingLicenseNumber ?? '');
-    final cnicCtrl  = TextEditingController(
-        text: existing?.cnic ?? '');
+    final cnicCtrl  = TextEditingController(text: existing?.cnic ?? '');
     DateTime? dob   = existing?.dateOfBirth != null
-        ? DateTime.tryParse(existing!.dateOfBirth!) : null;
-    FamilyRelation relation = existing?.relation ?? FamilyRelation.other;
-    bool married = existing?.married ?? false;
+        ? DateTime.tryParse(existing!.dateOfBirth!)
+        : null;
+    FamilyRelation relation =
+        existing?.relation ?? FamilyRelation.other;
+    bool married   = existing?.married ?? false;
     bool permanent = existing?.permanentResident ?? true;
-    bool dlHolder = existing?.drivingLicenseHolder ?? false;
+    bool dlHolder  = existing?.drivingLicenseHolder ?? false;
 
     await showModalBottomSheet(
       context: context,
@@ -51,30 +59,33 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => Padding(
           padding: EdgeInsets.fromLTRB(
-              20, 20, 20,
-              MediaQuery.of(ctx).viewInsets.bottom + 20),
+              20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(existing == null ? 'Add Family Member' : 'Edit Member',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w500)),
+              Text(
+                existing == null ? 'Add Family Member' : 'Edit Member',
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w500),
+              ),
               const SizedBox(height: 16),
               TextField(
                 controller: nameCtrl,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Full Name *'),
+                decoration:
+                    const InputDecoration(labelText: 'Full Name *'),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<FamilyRelation>(
-                value: relation,
-                decoration: const InputDecoration(labelText: 'Relation'),
+                initialValue: relation,
+                decoration:
+                    const InputDecoration(labelText: 'Relation'),
                 items: FamilyRelation.values
                     .map((r) => DropdownMenuItem(
                           value: r,
-                          child: Text(r.name[0].toUpperCase() +
-                              r.name.substring(1)),
+                          child: Text(
+                              '${r.name[0].toUpperCase()}${r.name.substring(1)}'),
                         ))
                     .toList(),
                 onChanged: (v) => setSheet(() => relation = v!),
@@ -85,10 +96,10 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                     labelText: 'CNIC (optional, 18+)',
-                    hintText: '13 digits'),
+                    hintText: '13 digits without dashes'),
               ),
               const SizedBox(height: 12),
-              // Date of Birth
+              // Date of Birth picker
               InkWell(
                 onTap: () async {
                   final picked = await showDatePicker(
@@ -102,10 +113,10 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
                 child: InputDecorator(
                   decoration: const InputDecoration(
                       labelText: 'Date of Birth (optional)'),
+                  // A1 FIX: use _formatDob helper instead of
+                  // inline interpolation that was broken in the original.
                   child: Text(
-                    dob != null
-                        ? '\${dob!.day}/\${dob!.month}/\${dob!.year}'
-                        : 'Select date',
+                    dob != null ? _formatDob(dob!) : 'Select date',
                     style: TextStyle(
                         color: dob != null ? null : Colors.grey),
                   ),
@@ -134,8 +145,8 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: dlNoCtrl,
-                  decoration: const InputDecoration(
-                      labelText: 'License Number'),
+                  decoration:
+                      const InputDecoration(labelText: 'License Number'),
                 ),
               ],
               const SizedBox(height: 20),
@@ -153,12 +164,12 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
                       if (nameCtrl.text.trim().isEmpty) return;
                       final fs = ref.read(firestoreServiceProvider);
                       final member = FamilyMemberModel(
-                        memberId: existing?.memberId ??
-                            const Uuid().v4(),
+                        memberId: existing?.memberId ?? const Uuid().v4(),
                         name: nameCtrl.text.trim(),
                         relation: relation,
                         cnic: cnicCtrl.text.trim().isEmpty
-                            ? null : cnicCtrl.text.trim(),
+                            ? null
+                            : cnicCtrl.text.trim(),
                         dateOfBirth: dob?.toIso8601String(),
                         married: married,
                         permanentResident: permanent,
@@ -168,9 +179,8 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
                             ? dlNoCtrl.text.trim()
                             : null,
                       );
-                      await fs.saveFamilyMember(
-                          widget.residentId, member);
-                      Navigator.pop(ctx);
+                      await fs.saveFamilyMember(widget.residentId, member);
+                      if (ctx.mounted) Navigator.pop(ctx);
                       _load();
                     },
                     child: const Text('Save'),
@@ -189,7 +199,8 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove member?'),
-        content: const Text('This will remove them from your family records.'),
+        content: const Text(
+            'This will remove them from your family records.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -235,6 +246,15 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
               itemCount: _members.length,
               itemBuilder: (ctx, i) {
                 final m = _members[i];
+                // A1 FIX: build subtitle parts as a list so DOB and flags
+                // are only included when present — no stray "null" strings.
+                final subtitleParts = [
+                  '${m.relation.name[0].toUpperCase()}${m.relation.name.substring(1)}',
+                  if (m.dateOfBirth != null)
+                    'DOB: ${_formatDob(DateTime.parse(m.dateOfBirth!))}',
+                  if (m.permanentResident) 'Permanent',
+                  if (m.drivingLicenseHolder) 'DL Holder',
+                ];
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   shape: RoundedRectangleBorder(
@@ -244,24 +264,19 @@ class _MyFamilyTabState extends ConsumerState<MyFamilyTab> {
                       backgroundColor:
                           AppTheme.primaryColor.withValues(alpha: 0.1),
                       child: Text(
-                        m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
+                        m.name.isNotEmpty
+                            ? m.name[0].toUpperCase()
+                            : '?',
                         style: const TextStyle(
                             color: AppTheme.primaryColor,
                             fontWeight: FontWeight.bold),
                       ),
                     ),
                     title: Text(m.name,
-                        style:
-                            const TextStyle(fontWeight: FontWeight.w500)),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w500)),
                     subtitle: Text(
-                      [
-                        m.relation.name[0].toUpperCase() +
-                            m.relation.name.substring(1),
-                        if (m.dateOfBirth != null)
-                          'DOB: \${m.dateOfBirth!.substring(0, 10)}',
-                        if (m.permanentResident) 'Permanent',
-                        if (m.drivingLicenseHolder) 'DL Holder',
-                      ].join(' · '),
+                      subtitleParts.join(' · '),
                       style: const TextStyle(fontSize: 12),
                     ),
                     trailing: Row(

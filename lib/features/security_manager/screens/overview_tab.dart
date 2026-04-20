@@ -28,7 +28,8 @@ class _OverviewTabState extends State<OverviewTab> {
   }
 
   void _editThreshold() {
-    final controller = TextEditingController(text: _thresholdHours.toString());
+    final controller =
+        TextEditingController(text: _thresholdHours.toString());
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -84,7 +85,8 @@ class _OverviewTabState extends State<OverviewTab> {
             const SizedBox(width: 12),
             Expanded(
               child: StreamBuilder<List<Map<String, dynamic>>>(
-                stream: _fs.overstayWorkers(widget.siteId, _thresholdHours),
+                stream:
+                    _fs.overstayWorkers(widget.siteId, _thresholdHours),
                 builder: (_, snap) => _StatCard(
                   label: 'Overstays',
                   value: '${snap.data?.length ?? 0}',
@@ -133,7 +135,8 @@ class _OverviewTabState extends State<OverviewTab> {
             if (workers.isEmpty) {
               return const Card(
                 child: ListTile(
-                  leading: Icon(Icons.check_circle, color: Colors.green),
+                  leading:
+                      Icon(Icons.check_circle, color: Colors.green),
                   title: Text('No overstay alerts'),
                 ),
               );
@@ -143,16 +146,38 @@ class _OverviewTabState extends State<OverviewTab> {
                 final entryTime =
                     (w['last_event_time'] as Timestamp).toDate();
                 final duration = DateTime.now().difference(entryTime);
-                final hours = duration.inHours;
+                final hours   = duration.inHours;
                 final minutes = duration.inMinutes % 60;
+
+                // C8 FIX: presence_tracker docs do not store worker_name.
+                // The document ID is the workerId — use a FutureBuilder to
+                // fetch the worker name from the workers collection.
+                final workerId = w['id'] as String? ?? '';
+
                 return Card(
                   color: Colors.red.shade50,
-                  child: ListTile(
-                    leading: const Icon(Icons.warning, color: Colors.red),
-                    title: Text(w['worker_name'] ?? 'Unknown'),
-                    subtitle: Text(
-                        'Card: ${w['card_number'] ?? ''}\nInside for ${hours}h ${minutes}m'),
-                    isThreeLine: true,
+                  child: FutureBuilder(
+                    future: _fs.getWorker(workerId),
+                    builder: (_, workerSnap) {
+                      final workerName =
+                          workerSnap.data?.workerName ??
+                          w['worker_name'] as String? ??
+                          'Loading...';
+                      final cardNumber =
+                          workerSnap.data?.cardNumber ??
+                          w['card_number'] as String? ??
+                          '';
+                      return ListTile(
+                        leading: const Icon(Icons.warning,
+                            color: Colors.red),
+                        title: Text(workerName),
+                        subtitle: Text(
+                          '${cardNumber.isNotEmpty ? 'Card: $cardNumber\n' : ''}'
+                          'Inside for ${hours}h ${minutes}m',
+                        ),
+                        isThreeLine: cardNumber.isNotEmpty,
+                      );
+                    },
                   ),
                 );
               }).toList(),
@@ -187,8 +212,11 @@ class _StatCard extends StatelessWidget {
             Icon(icon, color: color, size: 32),
             const SizedBox(height: 8),
             Text(value,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: color, fontWeight: FontWeight.bold)),
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineMedium
+                    ?.copyWith(
+                        color: color, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             Text(label,
                 style: Theme.of(context).textTheme.bodySmall,

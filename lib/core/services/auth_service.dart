@@ -70,10 +70,31 @@ class AuthService {
         .set(user.toFirestore());
   }
 
+  // B4 FIX: write last_login to BOTH collections so every role is covered.
+  // - 'users' collection: covers gateClerk, securitySupervisor, securityManager
+  // - 'residents' collection: covers residents (who also have a doc there)
+  // Each write is individually guarded so a missing doc on one collection
+  // does not block the other (e.g. a clerk has no residents doc).
   Future<void> _updateLastLogin(String uid) async {
-    await _db.collection('users').doc(uid).update({
-      'last_login': FieldValue.serverTimestamp(),
-    });
+    final timestamp = FieldValue.serverTimestamp();
+
+    // users collection — primary for staff roles
+    try {
+      await _db.collection('users').doc(uid).update({
+        'last_login': timestamp,
+      });
+    } catch (_) {
+      // Doc may not exist for self-registered residents — ignore.
+    }
+
+    // residents collection — primary for resident role
+    try {
+      await _db.collection('residents').doc(uid).update({
+        'last_login': timestamp,
+      });
+    } catch (_) {
+      // Doc may not exist for staff roles — ignore.
+    }
   }
 
   String _handleAuthException(FirebaseAuthException e) {

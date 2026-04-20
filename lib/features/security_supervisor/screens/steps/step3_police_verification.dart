@@ -21,10 +21,9 @@ class Step3PoliceVerification extends ConsumerStatefulWidget {
 
 class _Step3PoliceVerificationState
     extends ConsumerState<Step3PoliceVerification> {
-  final _formKey = GlobalKey<FormState>();
+  final _formKey       = GlobalKey<FormState>();
   final _refController = TextEditingController();
   File? _policeVerifPhotoFile;
-  // ignore: prefer_final_fields
   bool _uploadingPhoto = false;
 
   @override
@@ -43,79 +42,83 @@ class _Step3PoliceVerificationState
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final notifier = ref.read(registrationFormProvider.notifier);
-    final formState = ref.read(registrationFormProvider);
+    final notifier        = ref.read(registrationFormProvider.notifier);
+    final formState       = ref.read(registrationFormProvider);
     final firestoreService = ref.read(firestoreServiceProvider);
-    final db = FirebaseFirestore.instance;
+    final db              = FirebaseFirestore.instance;
 
     notifier.setSubmitting(true);
     notifier.setError(null);
 
     try {
-      // Generate card number
+      // Generate card number and QR value
       final cardNumber = await CardNumberGenerator.generate(db);
+      final qrValue    = 'MHZ-${DateTime.now().millisecondsSinceEpoch}';
+      final now        = DateTime.now();
 
-      // Generate QR value
-      final qrValue = 'MHZ-\${DateTime.now().millisecondsSinceEpoch}';
+      // A3 FIX: read actual role from currentUserModelProvider so
+      // registeredByRole reflects the real role (supervisor, not hardcoded
+      // 'gateClerk').
+      final currentUser      = ref.read(authStateProvider).valueOrNull;
+      final currentUserModel = ref.read(currentUserModelProvider).valueOrNull;
+      final registeredByRole = currentUserModel?.role.name ?? 'securitySupervisor';
 
-      final now = DateTime.now();
-
-      // Create worker
       final worker = WorkerModel(
-        id: '',
-        cardNumber: cardNumber,
-        workerName: formState.name,
-        cnic: formState.cnic,
-        cnicExpiry: formState.cnicExpiry,
-        dob: formState.dob,
-        photoUrl: formState.photoUrl.isEmpty ? null : formState.photoUrl,
-        workerType: formState.workerType,
-        natureOfService: formState.natureOfService,
-        policeVerified: formState.policeVerified,
-        policeVerifDate: formState.policeVerifDate,
+        id:                   '',
+        cardNumber:           cardNumber,
+        workerName:           formState.name,
+        cnic:                 formState.cnic,
+        cnicExpiry:           formState.cnicExpiry,
+        dob:                  formState.dob,
+        photoUrl:             formState.photoUrl.isEmpty
+            ? null : formState.photoUrl,
+        workerType:           formState.workerType,
+        natureOfService:      formState.natureOfService,
+        policeVerified:       formState.policeVerified,
+        policeVerifDate:      formState.policeVerifDate,
         policeVerifRefNumber: _refController.text.trim().isEmpty
-            ? null
-            : _refController.text.trim(),
-        policeVerifExpiry: formState.policeVerifExpiry,
-        cnicPhotoUrlFront: formState.cnicPhotoUrlFront.isEmpty
+            ? null : _refController.text.trim(),
+        policeVerifExpiry:    formState.policeVerifExpiry,
+        cnicPhotoUrlFront:    formState.cnicPhotoUrlFront.isEmpty
             ? null : formState.cnicPhotoUrlFront,
-        cnicPhotoUrlBack: formState.cnicPhotoUrlBack.isEmpty
+        cnicPhotoUrlBack:     formState.cnicPhotoUrlBack.isEmpty
             ? null : formState.cnicPhotoUrlBack,
-        cardExpiryDate: DateTime.now().add(const Duration(days: 365)),
-        registeredByUid: ref.read(authStateProvider).valueOrNull?.uid,
-        registeredByRole: 'gateClerk',
-        status: WorkerStatus.pendingApproval,
-        qrCodeValue: qrValue,
-        qrInvalidated: false,
-        createdAt: now,
-        updatedAt: now,
+        cardExpiryDate:       now.add(const Duration(days: 365)),
+        registeredByUid:      currentUser?.uid,
+        registeredByRole:     registeredByRole,
+        status:               WorkerStatus.pendingApproval,
+        qrCodeValue:          qrValue,
+        qrInvalidated:        false,
+        createdAt:            now,
+        updatedAt:            now,
       );
 
       final workerId = await firestoreService.createWorker(worker);
 
-      // Upload police verif photo if provided
+      // Upload police verification photo if provided
       if (_policeVerifPhotoFile != null) {
+        setState(() => _uploadingPhoto = true);
         final storageService = ref.read(storageServiceProvider);
         final photoUrl = await storageService
             .uploadPoliceVerifDoc(workerId, _policeVerifPhotoFile!);
         if (photoUrl != null) {
-          await firestoreService.updateWorker(workerId,
-              {'police_verification_photo_url': photoUrl});
+          await firestoreService.updateWorker(
+              workerId, {'police_verification_photo_url': photoUrl});
         }
+        setState(() => _uploadingPhoto = false);
       }
 
       // Create assignment
-      final currentUser = ref.read(authStateProvider).valueOrNull;
       final assignment = WorkerAssignmentModel(
-        id: '',
-        workerId: workerId,
-        residentId: formState.residentId,
-        houseNumber: formState.houseNumber,
+        id:            '',
+        workerId:      workerId,
+        residentId:    formState.residentId,
+        houseNumber:   formState.houseNumber,
         arrivalWindow: formState.arrivalWindow,
-        status: AssignmentStatus.active,
-        approvedBy: currentUser?.uid ?? '',
-        approvedAt: now,
-        subEmployers: [],
+        status:        AssignmentStatus.active,
+        approvedBy:    currentUser?.uid ?? '',
+        approvedAt:    now,
+        subEmployers:  [],
       );
 
       await firestoreService.createAssignment(assignment);
@@ -138,8 +141,8 @@ class _Step3PoliceVerificationState
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Name: \${formState.name}'),
-                Text('Card No: \$cardNumber'),
+                Text('Name: ${formState.name}'),
+                Text('Card No: $cardNumber'),
                 const SizedBox(height: 8),
                 const Text(
                   'Status: Pending Approval',
@@ -162,14 +165,34 @@ class _Step3PoliceVerificationState
       }
     } catch (e) {
       notifier.setSubmitting(false);
-      notifier.setError('Registration failed: \$e');
+      // A3 FIX: sanitise the exception before storing — strip internal
+      // Firestore/gRPC details so the UI never exposes raw stack info.
+      final raw = e.toString();
+      final friendly = _friendlyError(raw);
+      notifier.setError(friendly);
     }
+  }
+
+  // A3 FIX: convert raw exception strings to user-facing messages.
+  String _friendlyError(String raw) {
+    if (raw.contains('permission-denied') ||
+        raw.contains('PERMISSION_DENIED')) {
+      return 'Permission denied. Please check your account is active.';
+    }
+    if (raw.contains('unavailable') || raw.contains('network')) {
+      return 'Network error. Please check your connection and try again.';
+    }
+    if (raw.contains('already-exists')) {
+      return 'A worker with this card number already exists. Please retry.';
+    }
+    // Strip "Exception: " prefix if present, but nothing else.
+    return raw.replaceAll('Exception: ', '').replaceAll('FirebaseException: ', '');
   }
 
   @override
   Widget build(BuildContext context) {
     final formState = ref.watch(registrationFormProvider);
-    final notifier = ref.read(registrationFormProvider.notifier);
+    final notifier  = ref.read(registrationFormProvider.notifier);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -201,7 +224,8 @@ class _Step3PoliceVerificationState
               ),
               child: SwitchListTile(
                 title: const Text('Police Verified'),
-                subtitle: const Text('Worker has valid police verification'),
+                subtitle:
+                    const Text('Worker has valid police verification'),
                 value: formState.policeVerified,
                 activeThumbColor: AppTheme.primaryColor,
                 onChanged: (v) => notifier.updateStep3(policeVerified: v),
@@ -210,7 +234,7 @@ class _Step3PoliceVerificationState
             const SizedBox(height: 16),
 
             if (formState.policeVerified) ...[
-              // Ref number
+              // Reference number
               TextFormField(
                 controller: _refController,
                 decoration: const InputDecoration(
@@ -238,10 +262,7 @@ class _Step3PoliceVerificationState
                 onChanged: (date) =>
                     notifier.updateStep3(policeVerifDate: date),
                 validator: formState.policeVerified
-                    ? (v) {
-                        if (v == null) return 'Verification date required';
-                        return null;
-                      }
+                    ? (v) => v == null ? 'Verification date required' : null
                     : null,
               ),
               const SizedBox(height: 16),
@@ -256,29 +277,25 @@ class _Step3PoliceVerificationState
                 onChanged: (date) =>
                     notifier.updateStep3(policeVerifExpiry: date),
                 validator: formState.policeVerified
-                    ? (v) {
-                        if (v == null) return 'Expiry date required';
-                        return null;
-                      }
+                    ? (v) => v == null ? 'Expiry date required' : null
                     : null,
               ),
               const SizedBox(height: 16),
             ],
 
-            // Police verif photo upload
+            // Police verification document photo
             PhotoUploadWidget(
               label: 'Police verification document',
               localFile: _policeVerifPhotoFile,
               isUploading: _uploadingPhoto,
               onFilePicked: (file) {
                 setState(() => _policeVerifPhotoFile = file);
-                notifier.updateStep3(
-                    policeVerifPhotoUrl: file.path);
+                notifier.updateStep3(policeVerifPhotoUrl: file.path);
               },
             ),
             const SizedBox(height: 16),
 
-            // Summary card
+            // Registration summary card
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -297,8 +314,7 @@ class _Step3PoliceVerificationState
                   const Divider(),
                   _SummaryRow('Worker Name', formState.name),
                   _SummaryRow('CNIC', formState.cnic),
-                  _SummaryRow('Worker Type',
-                      formState.workerType.name),
+                  _SummaryRow('Worker Type', formState.workerType.name),
                   _SummaryRow('House', formState.houseNumber),
                   _SummaryRow('Arrival', formState.arrivalWindow),
                   _SummaryRow('Police Verified',
@@ -306,6 +322,34 @@ class _Step3PoliceVerificationState
                 ],
               ),
             ),
+
+            // A3 FIX: error banner — previously setError() was called but
+            // the error was never displayed in the UI.
+            if (formState.errorMessage != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.3)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.error_outline,
+                      color: Colors.red, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      formState.errorMessage!,
+                      style: const TextStyle(
+                          color: Colors.red, fontSize: 13),
+                    ),
+                  ),
+                ]),
+              ),
+            ],
+
             const SizedBox(height: 32),
 
             // Navigation buttons
@@ -342,6 +386,8 @@ class _Step3PoliceVerificationState
   }
 }
 
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
 class _SummaryRow extends StatelessWidget {
   final String label;
   final String value;
@@ -349,6 +395,7 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (value.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -356,8 +403,7 @@ class _SummaryRow extends StatelessWidget {
           SizedBox(
             width: 110,
             child: Text(label,
-                style: const TextStyle(
-                    fontSize: 12, color: Colors.grey)),
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ),
           Expanded(
             child: Text(value,
@@ -416,7 +462,9 @@ class _DatePickerField extends StatelessWidget {
             ),
             child: Text(
               field.value != null
-                  ? '${field.value!.day.toString().padLeft(2, "0")}/${field.value!.month.toString().padLeft(2, "0")}/${field.value!.year}'
+                  ? '${field.value!.day.toString().padLeft(2, '0')}/'
+                    '${field.value!.month.toString().padLeft(2, '0')}/'
+                    '${field.value!.year}'
                   : 'Select date',
               style: TextStyle(
                 color: field.value != null

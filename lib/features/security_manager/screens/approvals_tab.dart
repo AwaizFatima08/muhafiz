@@ -73,30 +73,44 @@ class _WorkerApprovals extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           itemCount: requests.length,
           itemBuilder: (_, i) {
-            final r    = requests[i];
-            final name = r.employeeData['worker_name'] ??
+            final r         = requests[i];
+            final name      = r.employeeData['worker_name'] ??
                 r.employeeData['name'] ?? 'Unknown';
+            // A1 FIX: extract variables before interpolation so they are
+            // in scope; avoids undefined-identifier compile crash.
+            final cnic      = r.employeeData['cnic'] as String? ?? '---';
+            final type      = r.employeeData['worker_type'] as String? ?? '---';
+            final initiator = r.employeeData['initiated_by'] as String?;
+            final subtitleParts = [
+              'CNIC: $cnic',
+              type,
+              if (initiator != null && initiator.isNotEmpty)
+                'via $initiator',
+            ];
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: Colors.blue.withValues(alpha: 0.1),
-                  child: const Icon(Icons.person_outline, color: Colors.blue),
+                  child:
+                      const Icon(Icons.person_outline, color: Colors.blue),
                 ),
                 title: Text(name,
                     style: const TextStyle(fontWeight: FontWeight.w500)),
-                subtitle: Text('CNIC: \$cnic · \$type\$initiatedBy'),
+                subtitle: Text(subtitleParts.join(' · ')),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
                       icon: const Icon(Icons.check_circle,
                           color: Colors.green),
+                      tooltip: 'Approve',
                       onPressed: () => fs.updateRegistrationRequest(
                           r.id, {'status': 'approved'}),
                     ),
                     IconButton(
                       icon: const Icon(Icons.cancel, color: Colors.red),
+                      tooltip: 'Reject',
                       onPressed: () => fs.updateRegistrationRequest(
                           r.id, {'status': 'rejected'}),
                     ),
@@ -158,8 +172,8 @@ class _ResidentApprovals extends StatelessWidget {
                 title: Text(r.name,
                     style: const TextStyle(fontWeight: FontWeight.w500)),
                 subtitle: Text(
-                  'House: \${r.houseNumber}'
-                  '\${r.phoneMobile.isNotEmpty ? " · \${r.phoneMobile}" : ""}',
+                  'House: ${r.houseNumber}'
+                  '${r.phoneMobile.isNotEmpty ? " · ${r.phoneMobile}" : ""}',
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -167,6 +181,7 @@ class _ResidentApprovals extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.check_circle,
                           color: Colors.green),
+                      tooltip: 'Approve',
                       onPressed: () => fs.updateResident(r.id, {
                         'status': ResidentStatus.approved.name,
                         'is_active': true,
@@ -175,6 +190,7 @@ class _ResidentApprovals extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.cancel, color: Colors.red),
+                      tooltip: 'Reject',
                       onPressed: () => fs.updateResident(r.id, {
                         'status': ResidentStatus.suspended.name,
                         'is_active': false,
@@ -182,6 +198,81 @@ class _ResidentApprovals extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// ── Vehicle approvals ────────────────────────────────────────────────────────
+class _VehicleApprovals extends StatelessWidget {
+  final WidgetRef ref;
+  const _VehicleApprovals({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final fs = ref.read(firestoreServiceProvider);
+    return StreamBuilder<List<VehicleModel>>(
+      stream: fs.watchUnderReviewVehicles(),
+      builder: (_, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final vehicles = snap.data ?? [];
+        if (vehicles.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_outline,
+                    size: 64, color: Colors.green),
+                SizedBox(height: 12),
+                Text('No vehicles pending approval'),
+              ],
+            ),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: vehicles.length,
+          itemBuilder: (_, i) {
+            final v = vehicles[i];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                  child: const Icon(Icons.directions_car_outlined,
+                      color: Colors.blue),
+                ),
+                title: Text(v.vehicleRegistrationNumber,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w500, letterSpacing: 1)),
+                subtitle: Text(
+                  [
+                    v.vehicleType.name,
+                    if (v.make != null) v.make!,
+                    if (v.colour != null) v.colour!,
+                  ].join(' · '),
+                ),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(
+                    icon: const Icon(Icons.check_circle,
+                        color: Colors.green),
+                    tooltip: 'Approve',
+                    onPressed: () =>
+                        fs.updateVehicle(v.id, {'status': 'approved'}),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.cancel, color: Colors.red),
+                    tooltip: 'Reject',
+                    onPressed: () =>
+                        fs.updateVehicle(v.id, {'status': 'rejected'}),
+                  ),
+                ]),
               ),
             );
           },
@@ -214,7 +305,7 @@ class _PetApprovals extends StatelessWidget {
                 Icon(Icons.check_circle_outline,
                     size: 64, color: Colors.green),
                 SizedBox(height: 12),
-                Text('No pending pet requests'),
+                Text('No pending pet approvals'),
               ],
             ),
           );
@@ -233,14 +324,16 @@ class _PetApprovals extends StatelessWidget {
                 ),
                 title: Text(
                   p.petName ??
-                      '\${p.petType.name[0].toUpperCase()}'
-                      '\${p.petType.name.substring(1)}',
+                      '${p.petType.name[0].toUpperCase()}'
+                      '${p.petType.name.substring(1)}',
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
                 subtitle: Text(
-                  '\${p.petType.name}'
-                  '\${p.breed != null ? " · \${p.breed}" : ""}'
-                  '\${p.vaccinationStatus ? " · Vaccinated" : ""}',
+                  [
+                    p.petType.name,
+                    if (p.breed != null) p.breed!,
+                    if (p.vaccinationStatus) 'Vaccinated',
+                  ].join(' · '),
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -248,6 +341,7 @@ class _PetApprovals extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.check_circle,
                           color: Colors.green),
+                      tooltip: 'Approve',
                       onPressed: () => fs.updatePet(p.id, {
                         'status': PetStatus.approved.name,
                         'approved_at': DateTime.now().toIso8601String(),
@@ -255,82 +349,13 @@ class _PetApprovals extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.cancel, color: Colors.red),
+                      tooltip: 'Reject',
                       onPressed: () => fs.updatePet(p.id, {
                         'status': PetStatus.rejected.name,
                       }),
                     ),
                   ],
                 ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _VehicleApprovals extends StatelessWidget {
-  final WidgetRef ref;
-  const _VehicleApprovals({required this.ref});
-
-  @override
-  Widget build(BuildContext context) {
-    final fs = ref.read(firestoreServiceProvider);
-    return StreamBuilder<List<VehicleModel>>(
-      stream: fs.watchUnderReviewVehicles(),
-      builder: (_, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final vehicles = snap.data ?? [];
-        if (vehicles.isEmpty) {
-          return const Center(child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
-              SizedBox(height: 12),
-              Text('No vehicles pending approval'),
-            ],
-          ));
-        }
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: vehicles.length,
-          itemBuilder: (_, i) {
-            final v = vehicles[i];
-            return Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.blue.withValues(alpha: 0.1),
-                  child: const Icon(Icons.directions_car_outlined,
-                      color: Colors.blue),
-                ),
-                title: Text(v.vehicleRegistrationNumber,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w500, letterSpacing: 1)),
-                subtitle: Text(
-                  [
-                    v.vehicleType.name,
-                    if (v.make != null) v.make!,
-                    if (v.colour != null) v.colour!,
-                  ].join(' · '),
-                ),
-                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                  IconButton(
-                    icon: const Icon(Icons.check_circle, color: Colors.green),
-                    onPressed: () => fs.updateVehicle(v.id, {
-                      'status': 'approved',
-                    }),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.cancel, color: Colors.red),
-                    onPressed: () => fs.updateVehicle(v.id, {
-                      'status': 'rejected',
-                    }),
-                  ),
-                ]),
               ),
             );
           },
