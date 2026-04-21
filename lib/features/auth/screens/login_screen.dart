@@ -67,6 +67,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return;
       }
       // Router redirect handles navigation based on role
+      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -109,7 +110,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           color: AppTheme.primaryColor),
                 ),
                 Text(
-                  'Secure Township Staff Management',
+                  'Security Management System',
                   style: Theme.of(context)
                       .textTheme
                       .bodyMedium
@@ -222,7 +223,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Muhafiz v2.0.0 · Powered by Homi Labs',
+                  'Muhafiz v2.0.0  |  Managed by Homi Labs',
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
